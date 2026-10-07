@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAIN floor editor</title><style>
+:root{font-family:system-ui,sans-serif;color:#173f35;background:#f4f6ef}*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:32px 20px}h1{font-size:36px;margin-bottom:8px}p{line-height:1.6}.bar,.fields{display:flex;flex-wrap:wrap;gap:12px;align-items:end}label{display:grid;gap:6px;font-size:14px}input,select,button{font:inherit;padding:10px;border:1px solid #adbdb1;border-radius:8px}input{max-width:230px}button{background:#1d4b3b;color:white;cursor:pointer}button.secondary{background:white;color:#1d4b3b}section{background:white;padding:24px;border-radius:16px;margin:20px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}svg{width:100%;height:350px;background:#f4f6ef;border-radius:12px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.scroll{overflow:auto}#status{white-space:pre-wrap;color:#8b2e20;min-height:32px}small{color:#586c62}@media(max-width:760px){.grid{grid-template-columns:1fr}main{padding:16px}section{padding:16px}}
+</style></head><body><main>
+<small>RAIN · OFFLINE FIELD TOOLS</small><h1>Build a floor map</h1>
+<p>Start with a measured sketch. Add doors and junctions, then connect adjacent locations with corridor segments. Coordinates and lengths are in metres; positive Y is your chosen building north. This editor stays in your browser. Export the floor file and import it through RAIN’s Floor maps screen.</p>
+<div class="bar"><label>Floor name<input id="name" maxlength="80" value="College floor draft"></label><label>Map source<select id="source"><option value="user_provided_floor">User-provided measurements</option><option value="synthetic_floor">Synthetic demonstration</option></select></label>
+<button id="export">Validate and export floor</button><button id="save" class="secondary">Save editable draft</button><label>Load editable draft<input id="load" type="file" accept="application/json"></label></div><p id="status" role="status" aria-live="polite"></p>
+<div class="grid"><section><h2>Add a location</h2><form id="nodeForm" class="fields">
+<label>Unique ID<input id="nodeId" required placeholder="N01" maxlength="40"></label><label>Name<input id="room" placeholder="Room 201" maxlength="80"></label>
+<label>Type<select id="type"><option value="door">Door</option><option value="junction">Junction</option><option value="entrance">Entrance</option><option value="corridor_point">Corridor point</option><option value="stairs">Stairs</option><option value="washroom">Washroom</option></select></label>
+<label>X metres<input id="x" type="number" step="any" required></label><label>Y metres<input id="y" type="number" step="any" required></label>
+<label>Exact sign text<input id="sign" maxlength="120" placeholder="ROOM 201"></label><label>Sign condition<select id="condition"><option value="printed_clear">Printed clear</option><option value="printed_faded">Printed faded</option><option value="handwritten">Handwritten</option><option value="glare">Glare</option><option value="obscured">Obscured</option><option value="missing">Missing</option></select></label>
+<label>Similar nearby doors<input id="similar" type="number" min="0" max="50" value="0"></label><button>Add location</button></form><p><small>Use a junction where three or more corridors meet. Split a corridor at each door. Delete and re-add a location to correct it.</small></p></section>
+<section><h2>Connect locations</h2><form id="edgeForm" class="fields"><label>From<select id="from" required></select></label><label>To<select id="to" required></select></label>
+<label>Measured length<input id="length" type="number" min="0.01" max="10000" step="any" required></label><label>Forward bearing degrees<input id="bearing" type="number" min="0" max="359.999" step="any" required></label>
+<button type="button" id="suggest" class="secondary">Use coordinate geometry</button><label>Direction<select id="direction"><option value="true">Both directions</option><option value="false">From to To only</option></select></label>
+<label>Contains stairs<select id="stairs"><option value="false">No</option><option value="true">Yes</option></select></label><button>Add segment</button></form>
+<p><small>Bearings increase clockwise: north 0°, east 90°, south 180°, west 270°. Coordinate geometry is a suggestion; confirm the actual walking distance. Stairs are recorded but this version does not provide a step-free routing guarantee.</small></p></section></div>
+<section><h2>Map preview</h2><svg id="map" viewBox="0 0 900 350" aria-label="Floor schematic" role="img"></svg><p id="counts"></p></section>
+<section><h2>Locations</h2><div class="scroll"><table><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Coordinates</th><th>Sign</th><th></th></tr></thead><tbody id="nodes"></tbody></table></div></section>
+<section><h2>Segments</h2><div class="scroll"><table><thead><tr><th>ID</th><th>Connection</th><th>Metres</th><th>Bearing</th><th>Direction</th><th></th></tr></thead><tbody id="edges"></tbody></table></div></section>
+<p>Export validates topology and required values. The Android app checks the file again before activation. A valid file does not verify the physical measurements. Test routes in both directions before using the map for guidance.</p>
+</main><script>
+'use strict';
+const $=id=>document.getElementById(id); let nodes=[], edges=[];
+const say=text=>{$('status').textContent=text;};
+const nodeTypes=['door','junction','entrance','corridor_point','stairs','washroom'];
+const conditions=['printed_clear','printed_faded','handwritten','glare','obscured','missing'];
+const finite=v=>typeof v==='number'&&Number.isFinite(v);
+function validate(requireConnected=true){
+ const problems=[]; const ids=new Set(nodes.map(n=>n.id));
+ if(nodes.length<2||nodes.length>300)problems.push('Use 2–300 locations.');
+ if(ids.size!==nodes.length)problems.push('Location IDs must be unique.');
+ if(edges.length>900)problems.push('Use at most 900 segments.');
+ const adjacent=new Map(nodes.map(n=>[n.id,new Set()]));
+ for(const n of nodes){if(!/^[A-Za-z0-9_-]{1,40}$/.test(n.id)||!nodeTypes.includes(n.type)||!conditions.includes(n.condition)||!finite(n.x)||!finite(n.y)||Math.abs(n.x)>10000||Math.abs(n.y)>10000||!Number.isInteger(n.similar)||n.similar<0||typeof n.room!=='string'||typeof n.sign!=='string')problems.push('Invalid location fields.');if(n.type==='door'&&!n.room.trim())problems.push('Every door needs a room name.');}
+ if(!nodes.some(n=>n.room.trim()))problems.push('Add at least one named destination.');
+ if(new Set(edges.map(e=>e.id)).size!==edges.length)problems.push('Segment IDs must be unique.');
+ for(const e of edges){if(!ids.has(e.from)||!ids.has(e.to)||e.from===e.to||!finite(e.length)||e.length<=0||e.length>10000||!finite(e.bearing)||e.bearing<0||e.bearing>=360||typeof e.both!=='boolean'||typeof e.stairs!=='boolean')problems.push('Invalid segment endpoints, length, bearing or flags.');else{adjacent.get(e.from).add(e.to);adjacent.get(e.to).add(e.from);}}
+ for(const n of nodes)if(n.type==='door'&&adjacent.get(n.id).size>2)problems.push('A door cannot connect more than two neighbours. Use a junction.');
+ if(requireConnected&&nodes.length){for(const reverse of [false,true]){const seen=new Set(), queue=[nodes[0].id];while(queue.length){const at=queue.pop();if(seen.has(at))continue;seen.add(at);for(const e of edges){const a=reverse?e.to:e.from,b=reverse?e.from:e.to;if(a===at)queue.push(b);if(e.both&&b===at)queue.push(a);}}if(seen.size!==nodes.length){problems.push('Every location must be reachable in both directions. Connect isolated areas and check one-way segments.');break;}}}
+ return [...new Set(problems)];
+}
+function cell(row,value){const td=document.createElement('td');td.textContent=String(value);row.append(td);return td;}
+function render(){
+ $('nodes').replaceChildren();$('edges').replaceChildren();
+ for(const n of nodes){const r=document.createElement('tr');[n.id,n.room,n.type,`${n.x}, ${n.y}`,n.sign||'Missing'].forEach(v=>cell(r,v));const b=document.createElement('button');b.textContent='Delete';b.className='secondary';b.onclick=()=>{if(edges.some(e=>e.from===n.id||e.to===n.id)&&!confirm('Delete this location and its connected segments?'))return;nodes=nodes.filter(x=>x!==n);edges=edges.filter(e=>e.from!==n.id&&e.to!==n.id);render();};cell(r,'').append(b);$('nodes').append(r);}
+ for(const e of edges){const r=document.createElement('tr');[e.id,`${e.from} → ${e.to}`,e.length,e.bearing,e.both?'Both':'One way'].forEach(v=>cell(r,v));const b=document.createElement('button');b.textContent='Delete';b.className='secondary';b.onclick=()=>{edges=edges.filter(x=>x!==e);render();};cell(r,'').append(b);$('edges').append(r);}
+ for(const id of ['from','to']){const prior=$(id).value;$(id).replaceChildren();for(const n of nodes){const option=document.createElement('option');option.value=n.id;option.textContent=`${n.id} ${n.room}`;$(id).append(option);}if(nodes.some(n=>n.id===prior))$(id).value=prior;}
+ const svg=$('map');svg.replaceChildren();$('counts').textContent=`${nodes.length} locations · ${edges.length} segments`;
+ if(!nodes.length)return;
+ const minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),spanX=Math.max(1,Math.max(...nodes.map(n=>n.x))-minX),spanY=Math.max(1,Math.max(...nodes.map(n=>n.y))-minY),scale=Math.min(760/spanX,250/spanY);
+ const point=n=>[70+(n.x-minX)*scale,300-(n.y-minY)*scale];
+ function shape(type,attrs,text){const el=document.createElementNS('http://www.w3.org/2000/svg',type);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,v);if(text!==undefined)el.textContent=text;svg.append(el);}
+ for(const e of edges){const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to);if(!a||!b)continue;const p=point(a),q=point(b);shape('line',{x1:p[0],y1:p[1],x2:q[0],y2:q[1],stroke:'#809a89','stroke-width':5});}
+ for(const n of nodes){const p=point(n);shape('circle',{cx:p[0],cy:p[1],r:7,fill:'#173f35'});shape('text',{x:p[0],y:p[1]-13,'text-anchor':'middle','font-size':13,fill:'#173f35'},n.room||n.id);}
+}
+$('nodeForm').onsubmit=e=>{e.preventDefault();const n={id:$('nodeId').value.trim(),room:$('room').value.trim(),type:$('type').value,x:Number($('x').value),y:Number($('y').value),sign:$('sign').value.trim(),condition:$('condition').value,similar:Number($('similar').value)};if(!/^[A-Za-z0-9_-]{1,40}$/.test(n.id)||nodes.some(x=>x.id===n.id)||Math.abs(n.x)>10000||Math.abs(n.y)>10000){say('Use a unique ID with letters, digits, underscores or hyphens and local metre coordinates.');return;}nodes.push(n);render();say('Location added. Save an editable draft to keep your work.');};
+$('suggest').onclick=()=>{const a=nodes.find(n=>n.id===$('from').value),b=nodes.find(n=>n.id===$('to').value);if(!a||!b||a===b){say('Choose two different locations.');return;}const dx=b.x-a.x,dy=b.y-a.y;$('length').value=Math.hypot(dx,dy).toFixed(2);$('bearing').value=((Math.atan2(dx,dy)*180/Math.PI+360)%360).toFixed(2);say('Coordinate geometry filled. Confirm the actual walking distance.');};
+$('edgeForm').onsubmit=e=>{e.preventDefault();const from=$('from').value,to=$('to').value;if(!from||!to||from===to){say('Choose different endpoints.');return;}let id=1;while(edges.some(e=>e.id==='E'+id))id++;edges.push({id:'E'+id,from,to,length:Number($('length').value),bearing:Number($('bearing').value),both:$('direction').value==='true',stairs:$('stairs').value==='true'});render();say('Segment added.');};
+const quote=v=>'"'+String(v).replaceAll('"','""')+'"';
+const csv=(headers,rows)=>headers+'\n'+rows.map(r=>r.map(quote).join(',')).join('\n')+'\n';
+function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('export').onclick=()=>{const problems=validate();const name=$('name').value.trim();if(!name||/[\x00-\x1f]/.test(name))problems.push('Enter a single-line floor name.');if(problems.length){say(problems.join('\n'));return;}const pack={schema_version:1,name,data_source:$('source').value,rooms_csv:csv('node_id,node_type,room_name,sign_text,aliases,x_m,y_m,corridor_side,sign_condition,similar_doors_nearby,notes',nodes.map(n=>[n.id,n.type,n.room,n.sign,'',n.x,n.y,'',n.condition,n.similar,''])),edges_csv:csv('edge_id,from_node,to_node,length_m,bearing_deg,corridor_id,bidirectional,has_stairs,notes',edges.map(e=>[e.id,e.from,e.to,e.length,e.bearing,'C1',e.both,e.stairs,'']))};if(new TextEncoder().encode(JSON.stringify(pack)).length>1000000){say('Map exceeds 1 MB.');return;}download('rain-floor.json',pack);say('Floor file exported. Transfer it to the phone and choose it in RAIN > Floor maps.');};
+$('save').onclick=()=>download('rain-floor-draft.json',{draft_version:1,name:$('name').value,source:$('source').value,nodes,edges});
+$('load').onchange=async e=>{const file=e.target.files[0];if(!file)return;const previousNodes=nodes,previousEdges=edges;try{if(file.size>1000000)throw Error('Draft exceeds 1 MB.');const d=JSON.parse(await file.text());if(d.draft_version!==1||!Array.isArray(d.nodes)||!Array.isArray(d.edges)||d.nodes.length>300||d.edges.length>900||typeof d.name!=='string'||!['synthetic_floor','user_provided_floor'].includes(d.source))throw Error('Not a supported editable draft.');nodes=d.nodes;edges=d.edges;const errors=validate(false).filter(s=>!s.startsWith('Use 2')&&!s.startsWith('Add at least'));if(errors.length)throw Error(errors.join(' '));$('name').value=d.name.slice(0,80);$('source').value=d.source;render();say('Editable draft loaded.');}catch(error){nodes=previousNodes;edges=previousEdges;say(error.message);}};
+render();
+</script></body></html>

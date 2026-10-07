@@ -1,0 +1,2 @@
+# Demo validation uses Python 3.10+ standard library only.
+# Install experiment-specific packages only when measured data is available.

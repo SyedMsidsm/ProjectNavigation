@@ -1,0 +1,294 @@
+[
+  {
+    "node_id": "A003",
+    "label": "LH-A003",
+    "printed_dimensions": "7 x 12.56",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A002",
+    "label": "LH-A002",
+    "printed_dimensions": "7 x 11.8",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A001",
+    "label": "LH-A001",
+    "printed_dimensions": "7 x 10.76",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A004",
+    "label": "LH-A004",
+    "printed_dimensions": "9 x 10",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A005",
+    "label": "LH-A005",
+    "printed_dimensions": "10 x 8.49",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A006",
+    "label": "LH-A006",
+    "printed_dimensions": "8 x 10",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "A007",
+    "label": "LH-A007",
+    "printed_dimensions": "8.72 x 10",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "GRAPHICS",
+    "label": "Engineering Graphics Lab",
+    "printed_dimensions": "10 x 23.46",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "MATHS",
+    "label": "Maths Department",
+    "printed_dimensions": "10 x 3.0",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "EXAM_W",
+    "label": "Examination Centre (west)",
+    "printed_dimensions": "14 x 10",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "EXAM_S",
+    "label": "Examination Centre (south)",
+    "printed_dimensions": "18 x 10",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "PHY",
+    "label": "PHY-HOD",
+    "printed_dimensions": "5 x 3.86",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "CHEM",
+    "label": "CHEM-HOD",
+    "printed_dimensions": "5 x 3.86",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "TUT1",
+    "label": "TUTL-1",
+    "printed_dimensions": "5 x 8",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "TUT2",
+    "label": "TUTL-2",
+    "printed_dimensions": "5 x 8",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "GTOIL",
+    "label": "G. Toilet",
+    "printed_dimensions": "",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "LTOIL",
+    "label": "L. Toilet",
+    "printed_dimensions": "",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "COMPUTER",
+    "label": "Computer Lab",
+    "printed_dimensions": "13.68 x 14.0",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "CPROG",
+    "label": "C Programming Lab",
+    "printed_dimensions": "13.68 x 7.0",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "SERVER",
+    "label": "Server",
+    "printed_dimensions": "10.68 x 2.86",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "LIBRARY",
+    "label": "Library",
+    "printed_dimensions": "13.28 x 25.44; area 330 SQMT",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "NCC",
+    "label": "NCC Office",
+    "printed_dimensions": "10.0 x 2.86",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "PE",
+    "label": "PE Department",
+    "printed_dimensions": "10.0 x 2.86",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "STUDY",
+    "label": "Self Study Area",
+    "printed_dimensions": "6.00 x 5.85",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "STAFF",
+    "label": "Staff Room",
+    "printed_dimensions": "5 x 7.26",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "GIRLS",
+    "label": "Girls Lounge",
+    "printed_dimensions": "13.74 x 10.60",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "ELECTRICAL",
+    "label": "Electrical Room",
+    "printed_dimensions": "3 x 4.5",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "OFFICE_EXAM",
+    "label": "Office Examination",
+    "printed_dimensions": "7.90 x 11.90",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "WAIT",
+    "label": "Waiting Area",
+    "printed_dimensions": "6.10 x 4.62",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "OFFICE",
+    "label": "Office",
+    "printed_dimensions": "7.90 x 11.90",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "RECEPTION",
+    "label": "Reception",
+    "printed_dimensions": "6.96 x 4",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "CONF",
+    "label": "Conference Room",
+    "printed_dimensions": "11.66 x 6.00",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "node_id": "PRINCIPAL",
+    "label": "Principal",
+    "printed_dimensions": "9.5 x 5.83",
+    "door_verified": false,
+    "sign_verified": false,
+    "access_verified": false
+  },
+  {
+    "label": "Strong Room",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "VIP S. Room",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "Fees Counter",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "ELE. Room",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "Lift",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "Staircases",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  },
+  {
+    "label": "Courts and deck",
+    "routing_status": "excluded: entrance/access or vertical connection not verified"
+  }
+]

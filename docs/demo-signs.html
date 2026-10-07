@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAIN · Synthetic demonstration signs</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #edf3ee; color: #163e32; font-family: Arial, sans-serif; }
+    header { max-width: 1100px; margin: 0 auto; padding: 30px 24px; }
+    h1 { margin: 0 0 12px; font-size: 28px; }
+    p { line-height: 1.5; margin: 8px 0; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    button { padding: 11px 16px; border: 1px solid #9cab9f; border-radius: 8px; background: white; cursor: pointer; font: inherit; color: #163e32; }
+    button[aria-pressed="true"] { background: #163e32; color: white; }
+    main { max-width: 1100px; margin: 0 auto 40px; padding: 0 24px; }
+    article { background: white; border: 3px solid #111; margin: 24px 0; min-height: 400px; display: flex; align-items: center; justify-content: center; padding: 48px 25px; page-break-after: always; }
+    article[hidden] { display: none; }
+    .sign { text-align: center; font-size: clamp(42px, 8vw, 105px); font-weight: 800; letter-spacing: .035em; line-height: 1.15; color: #000; }
+    footer { max-width: 1100px; margin: auto; padding: 0 24px 30px; font-size: 14px; }
+    @media print {
+      @page { size: A4 landscape; margin: 16mm; }
+      body { background: white; }
+      header, footer { display: none; }
+      main { padding: 0; margin: 0; max-width: none; }
+      article, article[hidden] { display: flex; margin: 0; min-height: 165mm; }
+      article:last-child { page-break-after: auto; }
+      .sign { font-size: 82pt; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>RAIN demonstration signs</h1>
+  <p>These labels belong to the synthetic sample map. Show one sign to the phone camera at a time, or print all four pages. They are test targets, not campus measurements.</p>
+  <p>In RAIN select <strong>Scan a sign</strong>, hold the phone steady and confirm the suggested location.</p>
+  <nav aria-label="Choose a sign">
+    <button aria-pressed="true" data-sign="room">Room 201</button>
+    <button aria-pressed="false" data-sign="library">Library</button>
+    <button aria-pressed="false" data-sign="lab">CSE Lab 204</button>
+    <button aria-pressed="false" data-sign="seminar">Seminar Hall</button>
+    <button onclick="window.print()">Print all signs</button>
+  </nav>
+</header>
+<main>
+  <article id="room"><div class="sign">ROOM 201</div></article>
+  <article id="library" hidden><div class="sign">LIBRARY</div></article>
+  <article id="lab" hidden><div class="sign">CSE LAB 204</div></article>
+  <article id="seminar" hidden><div class="sign">SEMINAR HALL</div></article>
+</main>
+<footer>Camera OCR is a live device feature. Typed sample text tests the room matcher separately. A successful scan here does not establish real-building recognition accuracy.</footer>
+<script>
+  document.querySelectorAll('[data-sign]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('article').forEach(sign => { sign.hidden = sign.id !== button.dataset.sign; });
+    document.querySelectorAll('[data-sign]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+  }));
+</script>
+</body>
+</html>

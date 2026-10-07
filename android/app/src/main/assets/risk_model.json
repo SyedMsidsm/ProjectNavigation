@@ -1,0 +1,10 @@
+{
+  "type": "logistic",
+  "version": "v0-hand-weighted",
+  "trained": false,
+  "features": ["junction_excess", "turn_angle_quarters", "unreadability", "similar_doors", "edge_length_m"],
+  "weights": [0.65, 0.95, 1.7, 0.08, 0.008],
+  "bias": -4.0,
+  "scaler": {"mean": [0, 0, 0, 0, 0], "std": [1, 1, 1, 1, 1]},
+  "notes": "Heuristic demonstration weights, not calibrated probabilities. Static next-landmark proxy; no route-history gap feature."
+}

@@ -1,0 +1,3 @@
+photo_id,node_id,capture_type,sign_condition,device_model,lighting,distance_m,angle_deg,flash,timestamp_iso,contains_people,file_name
+P0001,N01,nameplate,printed_clear,SAMPLE_PHONE,day,1.0,0,false,2026-09-18T10:15:00+05:30,false,N01_nameplate_01.jpg
+P0002,N01,enrol,printed_clear,SAMPLE_PHONE,day,2.5,0,false,2026-09-18T10:16:00+05:30,false,N01_enrol_01.jpg

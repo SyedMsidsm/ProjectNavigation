@@ -1,0 +1,6 @@
+edge_id,from_node,to_node,length_m,bearing_deg,corridor_id,bidirectional,has_stairs,notes
+E01,ENT,J01,6.0,90,C-MAIN,true,false,SAMPLE ROW - replace with floor walk data
+E02,J01,N01,4.0,90,C-MAIN,true,false,SAMPLE
+E03,N01,N02,4.0,90,C-MAIN,true,false,SAMPLE
+E04,N02,J02,4.0,90,C-MAIN,true,false,SAMPLE
+E05,J02,N03,6.0,0,C-NORTH,true,false,SAMPLE

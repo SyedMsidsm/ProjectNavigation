@@ -1,0 +1,16 @@
+node_id,node_type,room_name,sign_text,aliases,x_m,y_m,corridor_side,sign_condition,similar_doors_nearby,notes
+ENT,entrance,Main entrance,MAIN ENTRANCE,Entrance|Lobby,0,0,,printed_clear,0,SYNTHETIC demonstration floor
+N01,door,Room 201,ROOM 201,201|Classroom 201,5,0,left,printed_clear,1,SYNTHETIC
+J01,junction,East junction,EAST WING,East wing,10,0,,printed_faded,5,SYNTHETIC ambiguous junction
+N02,door,Room 202,,202|Classroom 202,15,0,right,missing,5,SYNTHETIC missing sign
+J02,junction,Central junction,,,20,0,,missing,5,SYNTHETIC four-way junction
+N03,door,Room 203,ROOM 203,203|Classroom 203,20,5,right,printed_faded,4,SYNTHETIC
+J03,junction,Lab junction,LAB WING,Lab wing,20,10,,printed_clear,3,SYNTHETIC
+N04,door,CSE Lab 204,CSE LAB 204,204|Computer Lab|Lab 204,25,10,left,printed_clear,1,SYNTHETIC destination
+N05,door,Library,LIBRARY,Reading room|205,0,5,left,printed_clear,0,SYNTHETIC
+J04,corridor_point,Library corner,LIBRARY WING,Library wing,0,10,,printed_clear,0,SYNTHETIC
+N06,door,Seminar Hall,SEMINAR HALL,206|Seminar,7,10,left,printed_clear,0,SYNTHETIC
+N07,door,Faculty Office,FACULTY OFFICE,207|Staff room,14,10,right,printed_clear,0,SYNTHETIC
+N08,door,Electronics Lab,ELECTRONICS LAB,208|Electronics,25,0,left,printed_clear,2,SYNTHETIC
+N09,door,Store Room,STORE ROOM,209|Store,20,-5,left,printed_faded,2,SYNTHETIC
+N10,door,Room 210,ROOM 210,210|Classroom 210,10,-5,right,printed_clear,2,SYNTHETIC

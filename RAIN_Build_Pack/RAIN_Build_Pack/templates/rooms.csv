@@ -1,0 +1,7 @@
+node_id,node_type,room_name,sign_text,aliases,x_m,y_m,corridor_side,sign_condition,similar_doors_nearby,notes
+ENT,entrance,Main Entrance,,,0,0,,,0,SAMPLE ROW - replace with floor walk data
+J01,junction,,,,6,0,,,0,SAMPLE
+N01,door,Room 201,ROOM NO. 201,201|Classroom 201,10,0,left,printed_clear,2,SAMPLE
+N02,door,Room 202,ROOM 202,202,14,0,right,printed_faded,2,SAMPLE
+J02,junction,,,,18,0,,,0,SAMPLE four-way junction
+N03,door,CSE Lab 2,,CSE Lab|Lab 2|204,18,6,left,missing,1,SAMPLE

@@ -1,0 +1,16 @@
+edge_id,from_node,to_node,length_m,bearing_deg,corridor_id,bidirectional,has_stairs,notes
+E01,ENT,N01,5,90,C-EAST,true,false,SYNTHETIC
+E02,N01,J01,5,90,C-EAST,true,false,SYNTHETIC
+E03,J01,N02,5,90,C-EAST,true,false,SYNTHETIC
+E04,N02,J02,5,90,C-EAST,true,false,SYNTHETIC
+E05,J02,N03,5,0,C-CENTRAL,true,false,SYNTHETIC
+E06,N03,J03,5,0,C-CENTRAL,true,false,SYNTHETIC
+E07,J03,N04,5,90,C-NORTH,true,false,SYNTHETIC
+E08,ENT,N05,6,0,C-WEST,true,false,SYNTHETIC measured-distance placeholder
+E09,N05,J04,6,0,C-WEST,true,false,SYNTHETIC measured-distance placeholder
+E10,J04,N06,8,90,C-NORTH,true,false,SYNTHETIC measured-distance placeholder
+E11,N06,N07,8,90,C-NORTH,true,false,SYNTHETIC measured-distance placeholder
+E12,N07,J03,7,90,C-NORTH,true,false,SYNTHETIC measured-distance placeholder
+E13,J02,N08,5,90,C-EAST,true,false,SYNTHETIC
+E14,J02,N09,5,180,C-SOUTH,true,false,SYNTHETIC
+E15,J01,N10,5,180,C-SOUTH,true,false,SYNTHETIC
