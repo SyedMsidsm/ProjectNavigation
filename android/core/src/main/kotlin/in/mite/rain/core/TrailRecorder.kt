@@ -159,6 +159,18 @@ object DestinationSearch {
                     }))
         } }
     }
+    fun semanticCatalog(request: String, places: List<Node>): List<Node> {
+        val words = normal(request).split(" ").toSet()
+        val washing = words.any { it in setOf("wash","washing","rinse") } &&
+            words.any { it in setOf("face","hand","hands") }
+        if (!washing) return places
+        return places.filter { node -> node.type == NodeType.WASHROOM ||
+            (listOf(node.roomName) + node.aliases).any { label ->
+                normal(label).replace(" ", "") in setOf("washroom","bathroom","restroom","toilet","washbasin","sink") ||
+                    normal(label).split(" ").any { it in setOf("washroom","bathroom","restroom","toilet","sink") }
+            }
+        }
+    }
     fun validatedSuggestion(output: String, nodes: Collection<Node>): Node? {
         val id = output.trim().removeSurrounding("\"")
         return nodes.singleOrNull { it.id == id && it.roomName.isNotBlank() }

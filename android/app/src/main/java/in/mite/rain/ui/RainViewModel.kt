@@ -127,7 +127,11 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
             finally{assistantBusy=false}
         }
     }
-    suspend fun describePlace(request:String, places:List<Node>) = assistant.suggest(request.trim(),places)
+    suspend fun describePlace(request:String, places:List<Node>): Node? {
+        val catalog = DestinationSearch.semanticCatalog(request,places)
+        if (catalog.isEmpty()) return null
+        return assistant.suggest(request.trim(),catalog)
+    }
     fun askDestination(request:String) {
         if(assistantBusy || navigating || recording) return
         val floor=graph ?: return
@@ -138,7 +142,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         assistantBusy=true;assistantStatus="Checking your request on this phone…"
         viewModelScope.launch {
             try {
-                val answer=assistant.suggest(request.trim(),floor.nodes.values.filter{it.roomName.isNotBlank()})
+                val answer=describePlace(request.trim(),floor.nodes.values.filter{it.roomName.isNotBlank()})
                 if(graph===floor){suggestedDestination=answer;assistantStatus=if(answer==null) "No valid place suggestion. Choose a saved destination." else "AI suggestion — confirm this place before navigating."}
             } catch(e:Exception){assistantStatus=e.message?.take(200) ?: "Local assistant unavailable. Use name search."}
             finally{assistantBusy=false}

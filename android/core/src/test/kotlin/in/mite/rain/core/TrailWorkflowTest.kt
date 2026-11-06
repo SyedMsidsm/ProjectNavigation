@@ -25,6 +25,8 @@ class TrailWorkflowTest {
             assertEquals(it, "W", DestinationSearch.matches(it,places).single().id)
         }
         assertTrue(DestinationSearch.matches("I want to wash my face",places).isEmpty())
+        assertEquals(listOf("W"),DestinationSearch.semanticCatalog("I want to wash my face",places).map { it.id })
+        assertTrue(DestinationSearch.semanticCatalog("wash my hands",places.drop(1)).isEmpty())
     }
     @Test fun savingUnmarkedWalkCreatesSelectableDestination() {
         val r = TrailRecorder(1.0, "Entrance")

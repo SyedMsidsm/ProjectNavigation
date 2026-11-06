@@ -1,3 +1,5 @@
+Latest Android demo and outstanding phone trials: [Antigravity handoff](../ANTIGRAVITY_HANDOFF.md).
+
 # RAIN progress and acceptance ledger
 
 ## Recorded routes and local assistant — 26 October 2026

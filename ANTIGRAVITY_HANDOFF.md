@@ -30,3 +30,20 @@ On this computer attach C:\Users\Musid\Desktop\RAIN as a local project folder in
 3. At the venue record a counted straight segment, mark a place, turn, return along the original corridor and confirm Back at the starting place. Navigate both directions and compare spoken cue timing and confirmed arrival with physical position.
 4. Record separate labelled trials: 20 seconds stationary, deliberate grip changes, rotating in place, abrupt pickup, 20 measured steps held in hand, pocket and bag, and slow/fast 45°, 90° and 180° turns. Note actual steps, phone orientation, estimated steps, angles, unwanted steps and missed steps. Keep carry changes separate from walking. Tune only against measured traces and replay old successful cases too. If pocket/bag cannot supply reliable body heading, explain the supported carry mode and provide recovery at a known place.
 5. Keep the dark one-floor workflow simple. Test small window, large text, keyboard, back gesture, screen rotation, voice errors and duplicate names across floors. Use real screenshots for visual review. Update this handoff after every material verified change, with version, commands and physical evidence.
+
+## Handoff on another computer
+
+    git clone --branch codex/demo-handoff --single-branch https://github.com/SyedMsidsm/ProjectNavigation.git RAIN
+    cd RAIN
+    git status -sb
+    git log -1 --oneline
+
+Attach that directory to an Antigravity project with Add Folder. On the original computer attach the existing directory instead. Start a chat with docs/ANTIGRAVITY_PROMPT.md. The Git repository carries source and handoff evidence. The original machine carries the configured build tools, matching debug key and APK. The demo phone carries its private maps and local Gemma model.
+
+## Latest build evidence
+
+Version 17 installed in place. JVM suite: 93 tests. Android lint passed. Instrumentation: 20 tests on the S24 Ultra including offline model inference. The matching APK checksum is in output/RAIN-demo.apk.sha256. An actual screen test uncovered an incorrect free-text washroom suggestion on a map containing personal place names. For face/hand-washing requests, constrain the model catalog to plausible saved washroom/sink labels or aliases and return no match if none exists. Other open-ended requests still use the full eligible catalog and user confirmation.
+
+
+A stationary check through the normal phone UI verified both scan prompts can be skipped, opening a saved map enters the current-place question, typing “entrnace” confirms “entrance,” and the indirect request “I want to wash my face” now suggests the saved Washroom. Accepting that suggestion starts a route on the selected map. This check used typed input and skipped the camera. A physical microphone, sign and walking rehearsal is still needed. Ending a walk now returns to Home so a completed journey does not reopen the sign prompt.
+On the installed S24, the library UI successfully switched to the corrected map, renamed a disposable copy, and deleted that copy after confirmation. Repeat rename/delete only with disposable recordings. The active snapshot has its own lifetime.

@@ -68,7 +68,7 @@ fun RainApp(model: RainViewModel) {
         model.pauseForInteraction(showSample || showSettings || showCalibration || showMaps || showCollection)
         onDispose { model.pauseForInteraction(false) }
     }
-    BackHandler(enabled = model.navigating && !model.showScanner && model.recognition == null) { model.finishNavigation(false) }
+    BackHandler(enabled = model.navigating && !model.showScanner && model.recognition == null) { model.finishNavigation(false); page="home" }
     BackHandler(enabled = !model.navigating && !model.recording && page != "home") { page="home" }
     val graph = model.graph
     Surface(Modifier.fillMaxSize(), color = CanvasColor) {
@@ -103,8 +103,8 @@ fun RainApp(model: RainViewModel) {
                     },
                     onDemoSteps = { repeat(5) { model.step(simulated = true) } },
                     onDemoTurn = { model.turn(it, simulated = true) }, onScan = model::openScanner,
-                    onSampleSign = { showSample = true }, onFinish = { model.finishNavigation(true) },
-                    onExit = { model.finishNavigation(false) }, onExport = model::export,
+                    onSampleSign = { showSample = true }, onFinish = { model.finishNavigation(true); page="home" },
+                    onExit = { model.finishNavigation(false); page="home" }, onExport = model::export,
                     onAr = {
                         model.beginAr()?.let { arLauncher.launch(it) }
                     })
