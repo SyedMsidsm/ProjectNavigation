@@ -36,7 +36,7 @@ internal fun decimal(value: Double) = String.format(Locale.US, "%.2f", value)
 internal fun RouteChoice(kind: PlannerKind, route: Route?, selected: Boolean, onSelect: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(enabled = route != null, onClick = onSelect),
-        shape = RoundedCornerShape(20.dp), color = if (selected) PaleGreen else Color.White,
+        shape = RoundedCornerShape(20.dp), color = if (selected) PaleGreen else PanelColor,
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) Ink else Color(0xFFE1E6DC)),
     ) {
         Row(Modifier.padding(start = 6.dp, end = 16.dp, top = 13.dp, bottom = 13.dp)) {

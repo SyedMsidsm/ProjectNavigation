@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "image": "marked-plan.jpeg",
+  "image_width": 1600,
+  "image_height": 898,
+  "source": "User-marked ground-floor image supplied 7 October 2026",
+  "printed_dimension_unit": "metres",
+  "corridor_lengths_measured": false,
+  "lobby_middle_corridor_level_passage_confirmed": true,
+  "legend": {
+    "blue": "walkable corridor centre lines",
+    "red": "door markings; some room associations require clarification",
+    "yellow": "stairs, explicitly confirmed by user",
+    "green": "pending confirmation: openings/entrances per requested markup legend",
+    "black_x": "pending confirmation: blocked/restricted west end per requested markup legend"
+  },
+  "doors": [
+    {"id":"A007","label":"LH-A007","pixel":[340,35],"approach":[340,16],"aliases":"LH A007|A007"},
+    {"id":"A006","label":"LH-A006","pixel":[478,153],"approach":[505,153],"aliases":"LH A006|A006"},
+    {"id":"GRAPHICS_N","label":"Engineering Graphics Lab (north door)","pixel":[523,65],"approach":[505,65],"aliases":"Engineering Graphics Lab|Graphics Lab"},
+    {"id":"GRAPHICS","label":"Engineering Graphics Lab (south door)","pixel":[523,351],"approach":[505,351],"aliases":"Engineering Graphics Lab|Graphics Lab"},
+    {"id":"EXAM_W","label":"Examination Centre (west)","pixel":[395,182],"approach":[415,182],"aliases":"Examination Centre|Exam Centre"},
+    {"id":"EXAM_S","label":"Examination Centre (south)","pixel":[480,318],"approach":[505,318],"aliases":"Examination Centre|Exam Centre"},
+    {"id":"A005","label":"LH-A005","pixel":[520,450],"approach":[505,450],"aliases":"LH A005|A005"},
+    {"id":"PHY","label":"PHY-HOD","pixel":[478,465],"approach":[505,465],"aliases":"Physics HOD"},
+    {"id":"MATHS","label":"Maths Department","pixel":[520,484],"approach":[505,484],"aliases":"Mathematics Department"},
+    {"id":"CHEM","label":"CHEM-HOD","pixel":[478,518],"approach":[505,518],"aliases":"Chemistry HOD"},
+    {"id":"TOILETS","label":"Toilet access","pixel":[237,538],"approach":[237,564],"aliases":"Toilets|Washrooms","type":"washroom"},
+    {"id":"TUT1","label":"TUTL-1","pixel":[317,539],"approach":[317,564],"aliases":"Tutorial 1"},
+    {"id":"TUT2","label":"TUTL-2","pixel":[384,538],"approach":[384,564],"aliases":"Tutorial 2"},
+    {"id":"A003","label":"LH-A003","pixel":[208,578],"approach":[208,564],"aliases":"LH A003|A003"},
+    {"id":"A002","label":"LH-A002","pixel":[260,581],"approach":[260,564],"aliases":"LH A002|A002"},
+    {"id":"A001","label":"LH-A001","pixel":[352,581],"approach":[352,564],"aliases":"LH A001|A001"},
+    {"id":"A004","label":"LH-A004","pixel":[603,578],"approach":[603,564],"aliases":"LH A004|A004"},
+    {"id":"COMPUTER_N","label":"Computer Lab (north door)","pixel":[1148,200],"approach":[1168,200],"aliases":"Computer Lab"},
+    {"id":"COMPUTER","label":"Computer Lab (south door)","pixel":[1151,342],"approach":[1168,342],"aliases":"Computer Lab"},
+    {"id":"CPROG","label":"C Programming Lab","pixel":[1148,444],"approach":[1168,444],"aliases":"C Lab"},
+    {"id":"LIBRARY","label":"Library","pixel":[1286,535],"approach":[1286,564],"aliases":""},
+    {"id":"WAIT","label":"Waiting Area","pixel":[985,578],"approach":[985,564],"aliases":""},
+    {"id":"GIRLS","label":"Girls Lounge","pixel":[1259,575],"approach":[1259,564],"aliases":""},
+    {"id":"STAFF","label":"Staff Room","pixel":[1359,575],"approach":[1359,564],"aliases":""}
+  ],
+  "stairs": [
+    {"id":"STAIR_W","label":"West stairs access","bounds":[433,582,487,663],"pixel":[487,620],"approach":[505,620]},
+    {"id":"STAIR_C","label":"Central stairs access","bounds":[809,610,864,689],"pixel":[864,650],"approach":[878,650]},
+    {"id":"STAIR_E","label":"Library stairs access","bounds":[1184,452,1237,535],"pixel":[1184,493],"approach":[1168,493]}
+  ],
+  "corridors": [
+    {"id":"MAIN","points":[[155,564],[208,564],[237,564],[260,564],[317,564],[352,564],[384,564],[505,564],[603,564],[700,564],[878,564],[920,564],[985,564],[1168,564],[1259,564],[1286,564],[1359,564],[1410,564]]},
+    {"id":"WEST","points":[[505,16],[505,65],[505,153],[505,182],[505,318],[505,351],[505,450],[505,465],[505,484],[505,518],[505,564],[505,620],[505,682]]},
+    {"id":"NORTH_WEST","points":[[226,16],[340,16],[505,16],[635,16]]},
+    {"id":"EXAM_APPROACH","points":[[505,182],[415,182]]},
+    {"id":"EAST","points":[[1168,146],[1168,200],[1168,342],[1168,444],[1168,493],[1168,564]]},
+    {"id":"NORTH_EAST","points":[[1168,146],[1340,146],[1485,146]]},
+    {"id":"LOBBY","points":[[878,564],[878,600],[878,650],[878,689],[900,701],[940,701],[948,790],[1190,798]]},
+    {"id":"RECEPTION_PASSAGE","points":[[878,689],[854,711],[810,718],[650,718]]}
+  ],
+  "unresolved_marks": [
+    {"id":"PE_DOOR","pixel":[1340,117],"note":"PE doorway is marked; confirm blue corridor through the NCC-labelled strip before routing this access"},
+    {"id":"LOWER_DOOR_1","pixel":[630,685],"note":"Confirm room association and approach beside LH-A004/VIP"},
+    {"id":"LOWER_DOOR_2","pixel":[630,713],"note":"Confirm room association and approach beside LH-A004"},
+    {"id":"LOWER_DOOR_3","pixel":[644,746],"note":"Confirm Principal doorway approach; avoid routing through Conference Room"},
+    {"id":"LOWER_DOOR_4","pixel":[808,727],"note":"Confirm whether this marks Conference Room, Reception or a passage opening"}
+  ],
+  "green_marks": [
+    {"id":"OPEN_NW","pixel":[214,16]},
+    {"id":"COURT_NW","pixel":[666,24]},
+    {"id":"OPEN_NE","pixel":[1160,127]},
+    {"id":"OPEN_NE_EAST","pixel":[1503,146]},
+    {"id":"COURT_SOUTH","line":[[676,527],[940,534]]},
+    {"id":"OPEN_EAST","pixel":[1420,556]},
+    {"id":"OPEN_SW","line":[[447,713],[510,713]]},
+    {"id":"OPEN_LOBBY_WEST","pixel":[833,803]},
+    {"id":"OPEN_LOBBY_EAST","pixel":[940,803]},
+    {"id":"OPEN_SOUTH_EAST","pixel":[1199,779]}
+  ],
+  "black_cross": {"pixel":[132,564],"routed":false},
+  "unrouted_rooms": ["Separate ladies/gents toilet doors","Server","NCC Office doorway","PE Department access confirmation","Self Study Area","Electrical Room","Office Examination","Office","Reception","Conference Room","Principal","VIP S. Room","Strong Room","Fees Counter","ELE. Room","Lift"]
+}

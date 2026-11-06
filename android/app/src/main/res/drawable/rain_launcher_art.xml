@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frame the supplied artwork without modifying its source image. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:left="18dp" android:right="18dp" android:top="22dp" android:bottom="22dp">
+        <bitmap android:src="@drawable/rain_brand" android:gravity="fill" />
+    </item>
+</layer-list>

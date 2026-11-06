@@ -4,6 +4,10 @@ Native Android presentation prototype for Samsung S24 Ultra and other Android 8+
 
 ## Start here
 
+**Recorded-route and assistant update (0.8.0):** the native RAIN home now offers **Record a trail**, **Navigate**, **View floor map**, **Saved maps**, **Campus tools** and **Local assistant**. Record named places and aliases, reconnect loops, confirm manual floor transitions, and reuse saved routes. Destination search supports fuzzy matching and offline speech on supported phones. The optional local language model suggests an existing destination for user confirmation; it does not control routing or positioning. See [the workflow and acceptance notes](docs/TRAIL_WORKFLOWS.md).
+
+On 26 October 2026, the 0.8.0 APK was installed on the S24 Ultra: 74 core tests and 18 device integration tests passed, and assembly/lint passed. A real local-model request also returned Library through the visible app UI. This is not measured walking accuracy; live step/turn, voice and multi-floor walking acceptance remain pending.
+
 **AR walking update (0.6.0):** open **AR walking navigation**, confirm the starting location and align once. ARCore then updates route progress, turns and a rolling arrow window while walking. Returning to the map retains progress; tracking loss requires a room-sign check. See [the walking guide and physical acceptance checklist](docs/AR_WALKING.md). Campus alignment and distance accuracy still need measured field trials.
 
 **AI collection update (0.5.0):** open **AI place collection** to capture labelled reference/training/validation/test views with offline MobileNetV3 and OCR. Photos are saved only on explicit confirmation and can be exported as a study ZIP. See [the collection and training guide](docs/AI_COLLECTION.md). The fusion preview is untrained; campus training and evaluated model deployment remain pending.
@@ -60,3 +64,5 @@ Validate real CSVs, then replace `android/app/src/main/assets/rooms.csv` and `ed
 ## Repository
 
 `android/core/` pure Kotlin algorithms and tests · `android/app/` Android adapters and UI · `python/` standard-library validation tools · `docs/` blueprint, audit, runbook and data notes · `scripts/` reproducible setup/build · original Claude files retained unchanged for provenance.
+
+For the current Android demo, build instructions and open field tests, start with [the app handoff](ANTIGRAVITY_HANDOFF.md).

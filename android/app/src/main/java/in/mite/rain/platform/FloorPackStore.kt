@@ -55,7 +55,7 @@ class FloorPackStore(private val context: Context) {
             val name = json.getString("name").trim()
             require(name.length in 1..80 && name.none { it.isISOControl() }) { "Use a short, single-line floor name." }
             val source = json.getString("data_source")
-            require(source in setOf("synthetic_floor", "user_provided_floor", "plan_derived_floor")) { "Unknown map source." }
+            require(source in setOf("synthetic_floor", "user_provided_floor", "plan_derived_floor", "recorded_trail")) { "Unknown map source." }
             val rooms = json.getString("rooms_csv"); val edges = json.getString("edges_csv")
             val graph = CsvGraphLoader.load(rooms, edges)
             require(graph.nodes.size in 2..300 && graph.edges.size <= 900) { "Use a single floor with 2–300 nodes and at most 900 segments." }

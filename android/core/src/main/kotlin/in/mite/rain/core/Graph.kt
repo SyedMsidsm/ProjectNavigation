@@ -18,7 +18,8 @@ data class Node(
     val signCondition: SignCondition = SignCondition.MISSING,
     val similarDoorsNearby: Int = 0,
     val corridorSide: String = "",
-    val notes: String = ""
+    val notes: String = "",
+    val floor: Int = 0
 ) {
     val displayName: String get() = roomName.ifBlank { id }
     val isRecognizable: Boolean get() = signText.isNotBlank() && signCondition != SignCondition.MISSING
@@ -33,12 +34,13 @@ data class Edge(
     val corridorId: String = "",
     val bidirectional: Boolean = true,
     val hasStairs: Boolean = false,
-    val notes: String = ""
+    val notes: String = "",
+    val transition: String = ""
 )
 
 /** An edge traversal has its own bearing; reverse travel must add 180 degrees. */
 data class Arc(val id: String, val edgeId: String, val fromNode: String, val toNode: String,
-               val lengthM: Double, val bearingDeg: Double, val hasStairs: Boolean)
+               val lengthM: Double, val bearingDeg: Double, val hasStairs: Boolean, val transition: String = "")
 
 class GraphValidationException(val problems: List<String>) : IllegalArgumentException(problems.joinToString("\n"))
 
@@ -57,6 +59,7 @@ class Graph(nodeList: Collection<Node>, val edges: List<Edge>) {
         nodeList.forEach { n ->
             if (n.id.isBlank()) errors += "Node IDs cannot be blank."
             if (!n.xM.isFinite() || !n.yM.isFinite()) errors += "Node ${n.id}: coordinates must be finite."
+            if (n.floor !in -20..100) errors += "Node ${n.id}: floor must be between -20 and 100."
             if (n.similarDoorsNearby < 0) errors += "Node ${n.id}: similar door count cannot be negative."
             if (n.corridorSide !in setOf("", "left", "right")) errors += "Node ${n.id}: invalid corridor side."
         }
@@ -65,8 +68,10 @@ class Graph(nodeList: Collection<Node>, val edges: List<Edge>) {
             if (e.id.isBlank()) errors += "Edge IDs cannot be blank."
             if (e.fromNode !in nodes || e.toNode !in nodes) errors += "Edge ${e.id}: unknown endpoint."
             if (e.fromNode == e.toNode) errors += "Edge ${e.id}: self-loops are not walkable segments."
-            if (!e.lengthM.isFinite() || e.lengthM <= 0) errors += "Edge ${e.id}: length must be finite and positive."
+            if (!e.lengthM.isFinite() || e.lengthM < 0 || (e.lengthM == 0.0 && e.transition.isBlank())) errors += "Edge ${e.id}: walking length must be finite and positive."
             if (!e.bearingDeg.isFinite()) errors += "Edge ${e.id}: bearing must be finite."
+            if (e.transition !in setOf("", "stairs", "lift", "escalator")) errors += "Unknown floor transition."
+            if (e.fromNode in nodes && e.toNode in nodes && (nodes.getValue(e.fromNode).floor != nodes.getValue(e.toNode).floor) != e.transition.isNotBlank()) errors += "Floor transitions must connect different floors."
             neighborMap[e.fromNode]?.add(e.toNode)
             neighborMap[e.toNode]?.add(e.fromNode)
         }
@@ -86,9 +91,9 @@ class Graph(nodeList: Collection<Node>, val edges: List<Edge>) {
         if (errors.isNotEmpty()) throw GraphValidationException(errors)
         neighbors = neighborMap.mapValues { it.value.toSet() }
         arcs = edges.flatMap { e ->
-            val forward = Arc("${e.id}:forward", e.id, e.fromNode, e.toNode, e.lengthM, normaliseBearing(e.bearingDeg), e.hasStairs)
+            val forward = Arc("${e.id}:forward", e.id, e.fromNode, e.toNode, e.lengthM, normaliseBearing(e.bearingDeg), e.hasStairs, e.transition)
             if (!e.bidirectional) listOf(forward) else listOf(forward,
-                Arc("${e.id}:reverse", e.id, e.toNode, e.fromNode, e.lengthM, normaliseBearing(e.bearingDeg + 180), e.hasStairs))
+                Arc("${e.id}:reverse", e.id, e.toNode, e.fromNode, e.lengthM, normaliseBearing(e.bearingDeg + 180), e.hasStairs, e.transition))
         }
         adjacency = arcs.groupBy { it.fromNode }.mapValues { (_, value) -> value.sortedBy { it.id } }
     }

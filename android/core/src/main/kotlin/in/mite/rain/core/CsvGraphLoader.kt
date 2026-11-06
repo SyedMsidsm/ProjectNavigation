@@ -11,13 +11,14 @@ object CsvGraphLoader {
                 row.number("x_m", label), row.number("y_m", label),
                 row.getValue("sign_condition").takeIf(String::isNotBlank)?.let { enumValue<SignCondition>(it, label) } ?: SignCondition.MISSING,
                 row.getValue("similar_doors_nearby").toIntOrNull() ?: fail("$label: invalid similar_doors_nearby"),
-                row.getValue("corridor_side").lowercase(), row["notes"].orEmpty())
+                row.getValue("corridor_side").lowercase(), row["notes"].orEmpty(),
+                row["floor"]?.takeIf { it.isNotBlank() }?.let { it.toIntOrNull() ?: fail("Invalid floor") } ?: 0)
         }
         val links = edges.mapIndexed { index, row ->
             val label = "edges row ${index + 2}"
             Edge(row.required("edge_id", label), row.required("from_node", label), row.required("to_node", label),
                 row.number("length_m", label), row.number("bearing_deg", label), row.getValue("corridor_id"),
-                row.boolean("bidirectional", label), row.boolean("has_stairs", label), row["notes"].orEmpty())
+                row.boolean("bidirectional", label), row.boolean("has_stairs", label), row["notes"].orEmpty(), row["transition"].orEmpty())
         }
         return Graph(nodes, links)
     }

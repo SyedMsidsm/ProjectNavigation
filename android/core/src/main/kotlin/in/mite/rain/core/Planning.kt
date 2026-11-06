@@ -103,7 +103,7 @@ class RoutePlanner(private val graph: Graph, private val model: RiskModel = Hand
                     }
                     PlannerKind.RISK -> if (prompt) ask else avoid
                 }
-                val candidateCost = cost + arc.lengthM + extra
+                val candidateCost = cost + arc.lengthM + extra + if (arc.transition.isNotBlank()) 10.0 else 0.0
                 require(candidateCost.isFinite()) { "Route costs overflow; reduce planner parameters or edge lengths" }
                 val next = State(arc.toNode, arc.id)
                 if (candidateCost < (distance[next] ?: Double.POSITIVE_INFINITY)) {

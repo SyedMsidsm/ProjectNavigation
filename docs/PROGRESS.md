@@ -1,5 +1,15 @@
 # RAIN progress and acceptance ledger
 
+## Recorded routes and local assistant — 26 October 2026
+
+Version 0.8.0-trails-assistant (versionCode 8) is installed and launched on the Samsung S24 Ultra. The native app now has the four reference workflows with RAIN branding: recording, navigation, map viewing and saved maps, plus campus tools and a local assistant. Features include gravity-projected gyro turn candidates, two-step turn confirmation, named places/aliases, explicit loop joins, separate saved recordings with rename/delete, floor-aware graph serialization, manual stairs/lift/escalator transitions, fuzzy destination search, on-device-only speech input, a large direction arrow, heuristic confidence and manual position/arrival confirmation. Multi-floor routes use map guidance; AR remains restricted to single-floor routes.
+
+Verification: 74 core tests passed, including 10 new workflow tests. APK assembly and lint passed in `.tools/trails-acceptance-build.log`. The Android test APK initially failed in the earlier invocation; a retry with the configured Java/SDK/Gradle environment succeeded in `.tools/trails-test-repair.log`. All 18 connected integration tests passed in `.tools/trails-device-tests.log`, including four new storage/serialization checks and real local language-model inference. The installed app's home, recording setup, saved-map empty state and local assistant were inspected. Through the visible assistant UI, “Where can I borrow a book” produced “Library · floor 0” and required **Use this destination** confirmation. No physical walking, speech or live-camera trial was performed for this release.
+
+The separate Gemma 4 E2B model was downloaded from the official LiteRT Community repository, checksum-verified and prepared in RAIN's private storage. `.tools/assistant-prepare.log` records successful transfer and device checksum verification. Models and reference source remain under ignored `.tools/`; neither is part of the source commit. No cloud model or runtime Internet permission was added. See `TRAIL_WORKFLOWS.md` for model/runtime sources and limits.
+
+APK SHA-256: `f5ccd60b9205729c2868f81c5c355a8b78d81fb1fcaa51d5eaa5ea780cb4e037`. `output/RAIN-trails-assistant.apk` preserves this build alongside `output/RAIN-demo.apk`. Existing marked-floor edits remain a draft; unresolved doorway/opening confirmations and the stopped AR walking test are still pending. Changes have not been committed or pushed during this update.
+
 Updated 7 October 2026. This file separates implementation from evidence. The target phone is Samsung S24 Ultra. A ground-floor architectural image has now been supplied; surveyed corridor distances and verified doorway locations are still pending.
 
 ## AR walking upgrade on 7 October
@@ -83,3 +93,18 @@ Do not convert generated source files into a percentage of validated research co
 ## Phone verification record
 
 USB authorised and verified on Samsung SM-S928B, Android 16 / API 36, app 0.1.0-demo, on 21 September 2026. Installed the verified APK and exercised route comparison, simulated wrong-turn recovery, Library anchoring and replanning. The resulting 16-event session passed the export checker. The user confirmed ROOM 201 through the live scanner. Three Android integration tests passed, including bundled OCR on three generated signs, hardware sensor availability and session writing. See PHONE_TEST_REPORT.md for evidence and limitations. No measured physical walking trial or real-campus accuracy result is claimed.
+
+## Theme update — 26 October 2026
+
+RAIN 0.8.1-olive-theme (version code 9) applies the supplied visual reference through olive/cream surfaces, lime accents, rounded components and a redesigned home screen. The supplied RAIN artwork is used on the home screen and as an adaptive launcher icon. The home destination prompt opens the existing planning workflow. Navigation and sensing logic are unchanged.
+
+Validation: scripts/build.ps1 -Install completed successfully (core test task, APK assembly and lint); installed on S24 Ultra. Home and floor-map screenshots inspected. This update does not constitute a new physical navigation test. APK: output/RAIN-olive-theme.apk. Home preview: output/theme-home.png.
+
+## Replacement logo — 26 October 2026
+
+RAIN 0.8.2-campus-logo (version code 10) replaces the previous wordmark artwork with the user-supplied campus/pin/radar image. The home logo shows the full image without the earlier zoom. The adaptive launcher icon uses a dark navy background and inset artwork. Source artwork is included unchanged.
+Validation: build, core test task and lint succeeded; installed on the connected S24 Ultra. Home-screen appearance checked. Build log: .tools/logo-build.log.
+
+## Automated feature audit — 26 October 2026
+
+Fixed duplicate/invalid recorded-place edits mutating a trail before rejection, guarded stale assistant suggestions, and changed phone testing to in-place installation to preserve app-private data. Added four core regression tests (two reproduced failures before the fix). Final result: 78 core, 31 Python and 18 actual device tests pass; build/lint and main UI screen checks pass. The local model was restored after the old connected-test runner removed it, and actual inference passed again. Fixed APK installed. Physical tests deferred at the user's request. See FEATURE_AUDIT_2026-10-26.md for feature coverage and limitations.

@@ -21,16 +21,23 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 internal fun GroundFloorPlanDialog(onClose: () -> Unit) {
     val context = LocalContext.current
-    val image = remember(context) {
-        context.assets.open("ground-floor-plan.png").use { BitmapFactory.decodeStream(it).asImageBitmap() }
+    var marked by remember { mutableStateOf(true) }
+    val image = remember(context, marked) {
+        context.assets.open(if (marked) "ground-floor-marked.jpeg" else "ground-floor-plan.png")
+            .use { BitmapFactory.decodeStream(it).asImageBitmap() }
     }
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CanvasColor) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp)) {
-                Text("Supplied ground-floor plan", style = MaterialTheme.typography.titleLarge)
-                Text("Pinch to zoom, drag to inspect. Door connections still need confirmation.")
+                Text(if (marked) "Marked ground-floor plan" else "Original ground-floor plan", style = MaterialTheme.typography.titleLarge)
+                Text("Blue: passages · Red: doors · Yellow: stairs. Pinch to zoom and drag to inspect.")
+                Text("Room dimensions are in metres. Route distances remain estimates; some openings still need clarification.",
+                    style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { marked = !marked; scale = 1f; offset = Offset.Zero }) {
+                    Text(if (marked) "View original drawing" else "View marked drawing")
+                }
                 Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()
                     .pointerInput(Unit) {
                         detectTransformGestures { _, pan, zoom, _ ->
@@ -40,7 +47,7 @@ internal fun GroundFloorPlanDialog(onClose: () -> Unit) {
                             offset = Offset((offset.x+pan.x).coerceIn(-maxX,maxX), (offset.y+pan.y).coerceIn(-maxY,maxY))
                         }
                     }) {
-                    Image(image, "Original supplied ground-floor architectural plan", contentScale = ContentScale.Fit,
+                    Image(image, if (marked) "User-marked corridors, doors and stairs" else "Original supplied ground-floor architectural plan", contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize().graphicsLayer {
                             scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y
                         })

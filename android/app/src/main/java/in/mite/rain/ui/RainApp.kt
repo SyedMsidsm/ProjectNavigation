@@ -20,6 +20,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,8 @@ fun RainApp(model: RainViewModel) {
     var showCalibration by rememberSaveable { mutableStateOf(false) }
     var showMaps by rememberSaveable { mutableStateOf(false) }
     var showCollection by rememberSaveable { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf("home") }
+    var mapFloor by rememberSaveable { mutableStateOf(0) }
     val floorPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::previewFloor) }
     val calibrationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val activityPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { model.changeMotionMode(true) }
@@ -66,6 +69,7 @@ fun RainApp(model: RainViewModel) {
         onDispose { model.pauseForInteraction(false) }
     }
     BackHandler(enabled = model.navigating && !model.showScanner && model.recognition == null) { model.finishNavigation(false) }
+    BackHandler(enabled = !model.navigating && !model.recording && page != "home") { page="home" }
     val graph = model.graph
     Surface(Modifier.fillMaxSize(), color = CanvasColor) {
         if (graph == null) {
@@ -88,6 +92,10 @@ fun RainApp(model: RainViewModel) {
                     feedbackStatus = model.feedbackStatus, promptPolicy = model.promptMode.displayName(),
                     planDerived = model.currentFloor?.source == "plan_derived_floor",
                     onRepeat = model::repeatGuidance, onObserver = model::observerTag, observerStatus = model.status,
+                    onConfirmPosition = model::confirmPosition, onConfirmFloor = model::confirmFloorChange,
+                    stepLengthM = model.stepLength,
+                    voiceOn = model.voiceEnabled, onVoice = model::toggleGuidanceVoice,
+                    headingDegrees = model.displayHeading, headingAligned = model.headingAligned, onAlignHeading = model::alignHeading,
                     onLiveMotion = { enabled ->
                         if (enabled && Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED)
                             activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
@@ -100,14 +108,52 @@ fun RainApp(model: RainViewModel) {
                     onAr = {
                         model.beginAr()?.let { arLauncher.launch(it) }
                     })
+            } else if(page=="home") {
+                TrailHome(model,onRecord={model.prepareRecording();page="record"},onNavigate={page="walk"},onMap={mapFloor=graph.nodes[model.startId]?.floor ?: 0;page="map"},
+                    onLibrary={page="library"},onCampus={page="plan"},onAssistant={page="assistant"})
+            } else if(page=="record") {
+                TrailRecordScreen(model,onNavigate={page="walk"}){page="home"}
+            } else if(page=="library") {
+                TrailLibraryScreen(model,onUse={page="walk"}){page="home"}
+            } else if(page=="walk") {
+                key(model.currentFloor?.digest) {
+                    WalkSetup(model,onMaps={page="library"},onBack={page="home"},onStart={
+                        model.changeMotionMode(true)
+                        if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(context,Manifest.permission.ACTIVITY_RECOGNITION)!=PackageManager.PERMISSION_GRANTED)
+                            activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                        model.beginNavigation()
+                    })
+                }
+            } else if(page=="assistant") {
+                AssistantScreen(model){page="home"}
+            } else if(page=="map") {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                    androidx.compose.material3.TextButton(onClick={page="home"}){Text("← Home")}
+                    Text("Floor map",style=MaterialTheme.typography.headlineLarge)
+                    androidx.compose.foundation.layout.Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                        graph.nodes.values.map{it.floor}.distinct().sorted().forEach{f->
+                            androidx.compose.material3.TextButton(onClick={mapFloor=f}){Text("Floor $f")}
+                        }
+                    }
+                    FloorMap(graph,model.routes[model.kind],model.startId,model.destinationId,floorName=model.currentFloor?.name.orEmpty(),synthetic=model.currentFloor?.synthetic!=false,selectedFloor=mapFloor)
+                    Button(onClick={page="walk"}){Text("Choose a destination")}
+                }
             } else {
+                Column {
+                androidx.compose.material3.TextButton(onClick={page="home"}){Text("← Home")}
                 PlanScreen(graph, model.startId, model.destinationId, model.kind, model.routes,
                     model::selectStart, model::selectDestination, model::selectKind,
                     onSettings = { showSettings = true }, onScan = model::openScanner,
-                    onDemoSign = { showSample = true }, onNavigate = model::beginNavigation,
+                    onDemoSign = { showSample = true }, onNavigate = {
+                        model.changeMotionMode(true)
+                        if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED)
+                            activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                        model.beginNavigation()
+                    },
                     onExport = model::export, hasSession = model.hasSession, status = model.status,
                     floorName = model.currentFloor?.name.orEmpty(), synthetic = model.currentFloor?.synthetic != false,
-                    ready = !model.mapBusy,
+                    ready = !model.mapBusy && !model.assistantBusy,
+                    searchPanel = { DestinationSearchPanel(model) },
                     planDerived = model.currentFloor?.source == "plan_derived_floor",
                     onMaps = { showMaps = true },
                     onCollect = { showCollection = true },
@@ -116,6 +162,7 @@ fun RainApp(model: RainViewModel) {
                         if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED)
                             calibrationPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                     })
+                }
             }
             if (showCollection) model.currentFloor?.let { PlaceCollectionDialog(it, model::selectStart) { showCollection = false } }
             if (showSettings) SettingsDialog(model.lambda, model.stepLength, model.voiceEnabled, model.hapticsEnabled, model.promptMode,

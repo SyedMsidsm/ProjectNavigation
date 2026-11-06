@@ -18,12 +18,135 @@ import `in`.mite.rain.platform.GuidanceFeedback
 import `in`.mite.rain.platform.FloorPackStore
 import `in`.mite.rain.platform.FloorPack
 import `in`.mite.rain.platform.LoadedFloor
+import `in`.mite.rain.platform.TrailLibrary
+import `in`.mite.rain.platform.SavedTrail
+import `in`.mite.rain.platform.LocalDestinationAssistant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Retains the tracker and ordered session writer across screen rotations. */
 class RainViewModel(application: Application) : AndroidViewModel(application) {
+    private val trailLibrary = TrailLibrary(application)
+    private val assistant = LocalDestinationAssistant(application)
+    var assistantBusy by mutableStateOf(false); private set
+    var assistantStatus by mutableStateOf(if (assistant.available()) "Local model imported" else "No local language model imported"); private set
+    var suggestedDestination by mutableStateOf<Node?>(null); private set
+    var savedTrails by mutableStateOf<List<SavedTrail>>(emptyList()); private set
+    var recording by mutableStateOf(false); private set
+    var recordingPaused by mutableStateOf(false); private set
+    var trailPreview by mutableStateOf<Graph?>(null); private set
+    var trailSteps by mutableStateOf(0); private set
+    var trailFloor by mutableStateOf(0); private set
+    var trailMessage by mutableStateOf<String?>(null); private set
+    var lastSavedTrailId by mutableStateOf<String?>(null); private set
+    private var recorder: TrailRecorder? = null
+    private var trailTrace: java.io.File? = null
+    fun prepareRecording() { if (!recording) { lastSavedTrailId = null; trailMessage = null } }
+    fun refreshTrails() { viewModelScope.launch { savedTrails = withContext(Dispatchers.IO) { trailLibrary.list() } } }
+    fun startRecording(start: String, floor: Int) {
+        if (navigating || mapBusy || assistantBusy || recording) return
+        try {
+            lastSavedTrailId = null
+            recorder = TrailRecorder(stepLength,start,floor); recording = true; recordingPaused = false
+            trailMessage = "Hold the phone in your hand. Stop walking while naming a place."
+            trailTrace = java.io.File(getApplication<Application>().filesDir,"last-recording-trace.jsonl").apply { writeText("") }
+            refreshRecording(); updateSensors()
+        } catch (e: Exception) { trailMessage=e.message }
+    }
+    private fun traceTrail(type: String, angle: Double? = null) {
+        runCatching { trailTrace?.appendText(org.json.JSONObject().put("event",type).put("timestamp_ms",android.os.SystemClock.elapsedRealtime()).put("angle_deg",angle).put("input_source","phone_sensor").toString()+"\n") }
+    }
+    private fun refreshRecording() { recorder?.let { trailPreview=it.preview(); trailSteps=it.steps; trailFloor=it.floor } }
+    private fun recordStep() { if(recording && !recordingPaused) { recorder?.step(); traceTrail("step"); refreshRecording() } }
+    private fun recordTurn(angle: Double) { if(recording && !recordingPaused) {
+        try { recorder?.turn(angle); traceTrail("turn",angle); refreshRecording() }
+        catch(e:Exception) { recordingPaused=true; trailMessage=e.message; updateSensors() }
+    } }
+    var accelerometerSteps by mutableStateOf(application.getSharedPreferences("rain_motion", android.content.Context.MODE_PRIVATE).getBoolean("accelerometer", false)); private set
+    fun toggleStepSource() {
+        if (!recording) return
+        pauseRecording()
+        accelerometerSteps = !accelerometerSteps
+        motion.preferAccelerometer = accelerometerSteps
+        trailMessage = "Step source changed. Hold the phone steady and tap Continue walking. Motion detection is an estimate and needs a walking check."
+    }
+    fun pauseRecording() { if(recording) { motion.flushPendingSteps(); recordingPaused=true; updateSensors() } }
+    fun resumeRecording() { if(recording && foreground) { recordingPaused=false; trailMessage="Recording resumed. Keep the same position and heading."; updateSensors() } }
+    fun markTrail(name: String, aliases: String) = editRecording { it.mark(name,aliases.split(',').map(String::trim).filter(String::isNotEmpty)) }
+    fun joinTrail(id: String) = editRecording { it.join(id) }
+    fun changeTrailFloor(floor: Int, method: String) = editRecording { it.changeFloor(floor,method) }
+    private fun editRecording(action: (TrailRecorder)->Unit) {
+        try { recorder?.let(action); trailMessage="Place updated. Resume only from this position and heading."; refreshRecording() }
+        catch(e:Exception) { trailMessage=e.message }
+    }
+    fun discardRecording() { recorder=null; recording=false; recordingPaused=false; trailPreview=null; updateSensors() }
+    fun saveRecording(name:String, backAtStart:Boolean = false) {
+        val active=recorder ?: return
+        if(mapBusy) return
+        val result=try {
+            val graph = active.finish()
+            if (backAtStart) graph.closeRecordedReturn("T1", active.currentPlaceId) else graph
+        } catch(e:Exception) { trailMessage=e.message; return }
+        mapBusy=true; recordingPaused=true; updateSensors()
+        viewModelScope.launch {
+            try {
+                lastSavedTrailId = withContext(Dispatchers.IO) { trailLibrary.save(name,result) }
+                val saved = withContext(Dispatchers.IO) { trailLibrary.read(checkNotNull(lastSavedTrailId)) }
+                floorStore.activate(saved)
+                load().join()
+                trailMessage="Map saved. Open it to choose your current place and destination."; discardRecording(); refreshTrails()
+            } catch(e:Exception) { trailMessage="Could not save: ${e.message}" }
+            finally { mapBusy=false }
+        }
+    }
+    fun useTrail(id:String, onReady:()->Unit = {}) {
+        if(navigating || recording || mapBusy) return
+        mapBusy=true
+        viewModelScope.launch {
+            try { val pack=withContext(Dispatchers.IO){trailLibrary.read(id)}; floorStore.activate(pack); load().join(); status=loadError?.let { "Could not open map: $it" } ?: "Recorded route selected."
+                if(loadError==null) onReady() }
+            catch(e:Exception){status="Could not open map: ${e.message}"}
+            finally{mapBusy=false}
+        }
+    }
+    fun renameTrail(id:String,name:String) { viewModelScope.launch {
+        try{withContext(Dispatchers.IO){trailLibrary.rename(id,name)};refreshTrails()}
+        catch(e:Exception){status=e.message}
+    } }
+    fun deleteTrail(id:String) { viewModelScope.launch {
+        try{withContext(Dispatchers.IO){trailLibrary.delete(id)};refreshTrails();status="Saved recording deleted. The active navigation snapshot is unchanged."}
+        catch(e:Exception){status=e.message}
+    } }
+    fun importAssistantModel(uri:android.net.Uri) {
+        if(assistantBusy || navigating || recording) return
+        assistantBusy=true;assistantStatus="Importing and checking the local model…"
+        viewModelScope.launch {
+            try{assistant.importModel(uri);assistantStatus="Local model ready. Ask for a destination."}
+            catch(e:Exception){assistantStatus="Model could not load: ${e.message?.take(180)}"}
+            finally{assistantBusy=false}
+        }
+    }
+    suspend fun describePlace(request:String, places:List<Node>) = assistant.suggest(request.trim(),places)
+    fun askDestination(request:String) {
+        if(assistantBusy || navigating || recording) return
+        val floor=graph ?: return
+        suggestedDestination=null
+        val matches=DestinationSearch.matches(request,floor.nodes.values)
+        if(matches.size==1){suggestedDestination=matches.single();assistantStatus="Matched a saved name or alias. Confirm the destination.";return}
+        if(matches.size>1){assistantStatus="Several places match. Select the correct place and floor from the list.";return}
+        assistantBusy=true;assistantStatus="Checking your request on this phone…"
+        viewModelScope.launch {
+            try {
+                val answer=assistant.suggest(request.trim(),floor.nodes.values.filter{it.roomName.isNotBlank()})
+                if(graph===floor){suggestedDestination=answer;assistantStatus=if(answer==null) "No valid place suggestion. Choose a saved destination." else "AI suggestion — confirm this place before navigating."}
+            } catch(e:Exception){assistantStatus=e.message?.take(200) ?: "Local assistant unavailable. Use name search."}
+            finally{assistantBusy=false}
+        }
+    }
+    fun confirmSuggestedDestination(){suggestedDestination?.let{if(graph?.nodes?.get(it.id)==it){selectDestination(it.id);status="Destination set to ${it.displayName}. Open Navigate to choose your starting place."}};suggestedDestination=null}
+    fun confirmPosition(id:String) { lastRecognitionSource="manual_place_confirmation";acceptRecognition(id) }
+    fun confirmFloorChange(){tracker?.confirmFloorChange()?.let(::updateNavigation);updateSensors()}
     private val preferences = UserSettings(application)
     private val floorStore = FloorPackStore(application)
     var currentFloor by mutableStateOf<LoadedFloor?>(null); private set
@@ -55,6 +178,19 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     var navigating by mutableStateOf(false); private set
     var liveMotion by mutableStateOf(false); private set
     var steps by mutableStateOf(0); private set
+    var displayHeading by mutableStateOf(0.0); private set
+    private var rawHeading = 0.0
+    var headingAligned by mutableStateOf(false); private set
+    fun toggleGuidanceVoice() {
+        voiceEnabled = !voiceEnabled
+        preferences.save(lambda, stepLength, voiceEnabled, hapticsEnabled, promptMode)
+        feedback.configure(voiceEnabled, hapticsEnabled)
+    }
+    fun alignHeading() {
+        displayHeading = activeRoute?.arcs?.getOrNull(navigation?.currentArcIndex ?: 0)?.bearingDeg ?: 0.0
+        rawHeading = displayHeading
+        headingAligned = true
+    }
     var sensorStatus by mutableStateOf("Sensors idle"); private set
     var status by mutableStateOf<String?>(null); private set
     var recognition by mutableStateOf<RecognitionResult?>(null); private set
@@ -77,6 +213,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         val route = activeRoute ?: return null
         val state = navigation ?: return null
         if (!navigating || state.offRouteReason != null || state.arrived || arToken != null) return null
+        if(route.arcs.any{it.transition.isNotBlank()}) { status="Use map navigation for this multi-floor route. AR currently supports a single floor."; return null }
         arToken = java.util.UUID.randomUUID().toString()
         feedback.pause(); updateSensors()
         event("ar_started", mapOf("input_source" to "arcore_visual_inertial", "demo_mode" to false,
@@ -107,11 +244,12 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         updateSensors()
     }
 
-    init { feedback.configure(voiceEnabled, hapticsEnabled); load() }
+    init { feedback.configure(voiceEnabled, hapticsEnabled); load(); refreshTrails() }
 
-    fun load() {
+    fun load(): kotlinx.coroutines.Job {
+        suggestedDestination = null
         loadError = null
-        viewModelScope.launch {
+        return viewModelScope.launch {
             try {
                 val loaded = floorStore.load()
                 val floor = loaded.graph
@@ -149,12 +287,14 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun beginNavigation() {
-        if (mapBusy || calibrationRecording) return
+        if (mapBusy || calibrationRecording || recording || assistantBusy) return
         val route = routes[kind] ?: return
         if (route.arcs.isEmpty()) return
         sessionStartedMs = System.currentTimeMillis()
         walkedBeforeReplan = 0.0; steps = 0; status = null; promptStartedMs = null
         activeRoute = route
+        headingAligned = false
+        displayHeading = route.arcs.first().bearingDeg
         tracker = NavigationTracker(graph!!, route, stepLength, settings(), promptMode)
         navigation = null
         logger.start(metadata() + mapOf(
@@ -181,6 +321,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     fun step(simulated: Boolean = false) {
         if (!navigating || arToken != null || interactionPaused || showScanner || recognition != null || simulated == liveMotion) return
         val previous = navigation
+        if(previous?.floorChangePending == true) return
         if (previous?.offRouteReason != null) return
         val next = tracker?.step() ?: return
         steps++
@@ -200,10 +341,21 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     private fun updateNavigation(next: NavigationState) {
         val previous = navigation
         navigation = next
-        val cueChanged = previous == null || previous.currentArcIndex != next.currentArcIndex ||
+        val route = activeRoute
+        val arc = route?.arcs?.getOrNull(next.currentArcIndex)
+        val turn = route?.transitions?.getOrNull(next.currentArcIndex + 1)
+        val approaching = arc != null && turn != null && kotlin.math.abs(turn.angleDeg) >= 45 &&
+            arc.lengthM - next.offsetM <= 3 && previous?.currentArcIndex == next.currentArcIndex &&
+            arc.lengthM - previous.offsetM > 3 && next.offRouteReason == null && !next.arrived
+        val turnCue = if (approaching) when {
+            kotlin.math.abs(turn!!.angleDeg) > 135 -> "Just ahead, turn back."
+            turn.angleDeg > 0 -> "Just ahead, turn right."
+            else -> "Just ahead, turn left."
+        } else null
+        val cueChanged = approaching || previous == null || previous.currentArcIndex != next.currentArcIndex ||
             previous.arrived != next.arrived || previous.offRouteReason != next.offRouteReason || previous.promptReason != next.promptReason
         if (cueChanged && foreground && !interactionPaused && !showScanner && recognition == null)
-            feedback.announce(if (next.promptReason != null && next.offRouteReason == null) "Check a nearby room sign. ${next.instruction}" else next.instruction,
+            feedback.announce(turnCue ?: if (next.promptReason != null && next.offRouteReason == null) "Check a nearby room sign. ${next.instruction}" else next.instruction,
                 next.offRouteReason != null || next.promptReason != null)
         if (next.offRouteReason != null && next.offRouteReason != previous?.offRouteReason)
             event("off_route", mapOf("reason" to next.offRouteReason, "confidence" to null))
@@ -215,13 +367,18 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun changeMotionMode(value: Boolean) {
         liveMotion = value
+        headingAligned = false
         if (navigating) event("input_mode_changed", mapOf("input_source" to if (value) "phone_sensor" else "demo_controls"))
         updateSensors()
     }
     fun changeForegroundState(value: Boolean) {
         foreground = value
         if (!value) {
+            headingAligned = false
             feedback.pause()
+            if(navigating && liveMotion && arToken == null && !showScanner && !interactionPaused)
+                tracker?.requirePositionCheck("navigation_interrupted")?.let(::updateNavigation)
+            if(recording){motion.flushPendingSteps();recordingPaused=true;trailMessage="Recording paused while the app was away. Return to the same place and heading before resuming."}
             if (calibrationRecording) {
                 calibration.interrupt(); calibrationRecording = false; calibrationResult = null
                 calibrationMessage = "Walk interrupted while the app was paused. Start a new trial so no missed steps enter calibration."
@@ -229,16 +386,27 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         }
         updateSensors()
     }
-    fun pauseForInteraction(value: Boolean) { interactionPaused = value; if (value) feedback.pause(); updateSensors() }
+    fun pauseForInteraction(value: Boolean) { interactionPaused = value; if (value) { headingAligned = false; feedback.pause() }; updateSensors() }
     private fun updateSensors() {
+        if(recording) {
+            if(foreground && !recordingPaused) motion.start(::recordStep, ::recordTurn, recordingTrail = true) else motion.stop()
+            sensorStatus=motion.status;return
+        }
         if (foreground && calibrationRecording) return
-        if (foreground && navigating && liveMotion && arToken == null && !interactionPaused && !showScanner && recognition == null) {
-            motion.start(onStep = { step() }, onTurn = { turn(it) })
+        if (foreground && navigating && liveMotion && navigation?.floorChangePending != true && arToken == null && !interactionPaused && !showScanner && recognition == null) {
+            motion.start(onStep = { step() }, onTurn = { turn(it) },
+                onHeadingDelta = { delta ->
+                    if (headingAligned) {
+                        rawHeading += delta
+                        val difference = rawHeading - displayHeading
+                        if (kotlin.math.abs(difference) > 1.5) displayHeading += difference * .28
+                    }
+                })
         } else motion.stop()
         sensorStatus = motion.status
     }
 
-    fun openScanner() { feedback.pause(); showScanner = true; updateSensors() }
+    fun openScanner() { headingAligned = false; feedback.pause(); showScanner = true; updateSensors() }
     fun closeScanner() { showScanner = false; updateSensors() }
     fun recognize(text: String, source: String) {
         val floor = graph ?: return
@@ -273,6 +441,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
             else {
                 walkedBeforeReplan += navigation?.distanceWalkedM ?: 0.0
                 activeRoute = route
+                headingAligned = false
                 tracker = NavigationTracker(floor, route, stepLength, settings(), promptMode)
                 navigation = null
                 promptStartedMs = null

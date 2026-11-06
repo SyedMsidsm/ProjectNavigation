@@ -8,7 +8,7 @@ class UserSettings(context: Context) {
     private val preferences = context.getSharedPreferences("rain_settings", Context.MODE_PRIVATE)
     val stepLength get() = preferences.getFloat("step_length", .7f).toDouble().takeIf { it.isFinite() && it in .3..1.2 } ?: .7
     val lambda get() = preferences.getFloat("lambda", 40f).toDouble().takeIf { it.isFinite() && it in 0.0..160.0 } ?: 40.0
-    val voice get() = preferences.getBoolean("voice", false)
+    val voice get() = preferences.getBoolean("voice", true)
     val haptics get() = preferences.getBoolean("haptics", false)
     val promptMode get() = runCatching { PromptMode.valueOf(preferences.getString("prompt_mode", "COST_SENSITIVE")!!) }.getOrDefault(PromptMode.COST_SENSITIVE)
     val calibrationSummary get() = preferences.getString("calibration_summary", "Not calibrated on a measured walk.")!!

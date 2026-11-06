@@ -104,7 +104,7 @@ internal fun FloorDialog(model: RainViewModel, onImport: () -> Unit, onClose: ()
                 Text("Review: ${floor.name}", style = MaterialTheme.typography.titleMedium)
                 Text("${floor.graph.nodes.size} locations · ${floor.graph.edges.size} segments\n" + when (floor.source) {
                     "synthetic_floor" -> "Synthetic data"
-                    "plan_derived_floor" -> "Drawing-derived draft. Doorways, access and distances are unverified. Sign conditions are unknown; automatic scan prompts are disabled for these unverified signs."
+                    "plan_derived_floor" -> "Drawing-derived draft. Check the marked plan for doorway evidence and pending openings. Route distances and physical access need field checks. Sign conditions are unknown; automatic scan prompts are disabled for these unverified signs."
                     else -> "User-provided measurements · field verification required"
                 })
                 Button(onClick = model::activateFloor, enabled = !model.mapBusy) { Text("Activate reviewed map") }

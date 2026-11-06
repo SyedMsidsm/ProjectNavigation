@@ -25,6 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import `in`.mite.rain.core.Graph
 import `in`.mite.rain.core.NavigationState
 import `in`.mite.rain.core.PlannerKind
@@ -38,34 +42,46 @@ internal fun NavigateScreen(
     onSampleSign: () -> Unit, onFinish: () -> Unit, onExit: () -> Unit, onExport: () -> Unit,
     onAr: () -> Unit,
     floorName: String, synthetic: Boolean, feedbackStatus: String, promptPolicy: String,
+    onConfirmPosition: (String) -> Unit = {}, onConfirmFloor: () -> Unit = {}, stepLengthM: Double = .7,
+    voiceOn: Boolean, onVoice: () -> Unit, headingDegrees: Double, headingAligned: Boolean, onAlignHeading: () -> Unit,
     onRepeat: () -> Unit, onObserver: (String) -> Unit, observerStatus: String?, planDerived: Boolean = false,
 ) {
+    var showTools by remember { mutableStateOf(false) }
     var showObserver by remember { mutableStateOf(false) }
+    var showPosition by remember { mutableStateOf(false) }
+    var positionId by remember { mutableStateOf(state.currentNodeId) }
+    var confirmArrival by remember { mutableStateOf(false) }
     val destinationId = route.nodes.last()
     val routeProgress = route.totalLengthM - state.remainingDistanceM
     val progress = if (route.totalLengthM <= 0) 1f else (routeProgress / route.totalLengthM).toFloat().coerceIn(0f, 1f)
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(17.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp, 14.dp, 22.dp, 32.dp)) {
+    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 8.dp, 16.dp, 24.dp)) {
         if (planDerived) item { Text("PLAN DRAFT · Estimated distances and doorway connections. This route needs an on-site check.", color = Muted) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onExit) { Text("← End walk") }
-                Tag(if (liveMotion) "PHONE SENSORS" else "DEMO MOTION", if (liveMotion) PaleGreen else SoftOrange)
+                if (!liveMotion) Tag("Demo motion", SoftOrange)
+                TextButton(onClick=onVoice) { Text(if(voiceOn) "Sound on" else "Sound off") }
             }
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Eyebrow("ON YOUR WAY TO")
-                Text(graph.nodes.getValue(destinationId).displayName, style = MaterialTheme.typography.headlineLarge)
-                Text("${kind.title()} · ${metres(route.totalLengthM)} total", color = Muted)
-            }
-        }
-        item {
-            Surface(color = Ink, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Eyebrow(if (state.arrived) "CHECK YOUR DESTINATION" else "NEXT UP", color = Accent)
-                    Text(if (state.arrived) "Route distance reached" else state.instruction,
-                        style = MaterialTheme.typography.headlineMedium)
+            Surface(color = PaleGreen, contentColor = Ink, shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("To ${graph.nodes.getValue(destinationId).displayName}", style = MaterialTheme.typography.labelLarge, color = Muted)
+                    val currentArc = route.arcs.getOrNull(state.currentArcIndex)
+                    val nextTurn = route.transitions.getOrNull(state.currentArcIndex + 1)
+                    val arrow = when {
+                        state.offRouteReason != null -> "?"
+                        state.floorChangePending -> "↕"
+                        state.arrived -> "✓"
+                        currentArc != null && currentArc.lengthM-state.offsetM <= 3 && nextTurn != null && kotlin.math.abs(nextTurn.angleDeg)>=60 -> if(kotlin.math.abs(nextTurn.angleDeg)>135)"↶" else if(nextTurn.angleDeg>0)"→" else "←"
+                        else -> "↑"
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(arrow,fontSize=42.sp,color=Accent)
+                        Text(if (state.arrived) "Route distance reached" else state.instruction,
+                            style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    }
                     Text(if (state.arrived) "Read the room sign to confirm where you are. Distance alone cannot verify arrival."
                         else "Estimated near ${graph.nodes[state.currentNodeId]?.displayName ?: state.currentNodeId}",
                         color = Color(0xFFDCE9DF), style = MaterialTheme.typography.bodyMedium)
@@ -77,27 +93,38 @@ internal fun NavigateScreen(
                 }
             }
         }
+        item { FloorMap(graph, route, route.nodes.first(), destinationId, routeProgress, navigating = true, floorName = floorName, synthetic = synthetic,selectedFloor=graph.nodes.getValue(state.currentNodeId).floor, headingDegrees=if(liveMotion && headingAligned) headingDegrees else route.arcs.getOrNull(state.currentArcIndex)?.bearingDeg) }
+        if (liveMotion && !state.arrived) item {
+            if (!headingAligned) Text("Face along the highlighted corridor ahead, then align the arrow. This is relative phone direction, not a compass.", style = MaterialTheme.typography.bodySmall, color = Muted)
+            TextButton(onClick = onAlignHeading) { Text(if (headingAligned) "Realign direction" else "I'm facing the route · Align arrow") }
+        }
         if (state.offRouteReason != null) item {
             Notice("Let's check your position", "${state.offRouteReason}. Scan a known sign to anchor your location and calculate a fresh route.", warning = true)
         } else if (state.promptReason != null) item {
             Notice("A good moment to read a sign", "${state.promptReason}. A known sign can reset the motion estimate.", warning = true)
         }
-        item {
+        if(showTools || state.offRouteReason != null || state.promptReason != null || state.floorChangePending) item {
             Button(onClick = onScan, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(17.dp)) {
                 Text("Scan sign & check position")
             }
             TextButton(onClick = onRepeat) { Text("Repeat guidance") }
             Text(feedbackStatus, style = MaterialTheme.typography.bodySmall, color = Muted)
+
+            if(state.confidence < .65 && !state.arrived) Text("Are you at ${graph.nodes.getValue(state.currentNodeId).displayName}? Confirm only if you recognise it.")
+            OutlinedButton(onClick={positionId=state.currentNodeId;showPosition=true},modifier=Modifier.fillMaxWidth()){Text("Confirm where I am")}
+            if(state.floorChangePending)Button(onClick=onConfirmFloor,modifier=Modifier.fillMaxWidth()){Text("Change floor — I have reached the new floor")}
         }
+        item { TextButton(onClick={showTools=!showTools}) { Text(if(showTools) "Hide extra tools" else "More options") } }
+        if(showTools) {
         item {
-            OutlinedButton(onClick = onAr, enabled = !state.arrived && state.offRouteReason == null,
+            OutlinedButton(onClick = onAr, enabled = !state.arrived && state.offRouteReason == null && route.arcs.none { it.transition.isNotBlank() },
                 modifier = Modifier.fillMaxWidth()) { Text("AR walking navigation") }
-            Text("Confirm your start and align once. Arrows and journey progress update as you walk.",
+            Text(if(route.arcs.any{it.transition.isNotBlank()}) "Use map guidance for multi-floor routes. AR currently supports single-floor routes." else "Confirm your start and align once. Arrows and journey progress update as you walk.",
                 style = MaterialTheme.typography.bodySmall, color = Muted)
         }
-        item { FloorMap(graph, route, route.nodes.first(), destinationId, routeProgress, navigating = true, floorName = floorName, synthetic = synthetic) }
+
         item {
-            Surface(color = Color.White, shape = RoundedCornerShape(22.dp)) {
+            Surface(color = PanelColor, shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -121,7 +148,7 @@ internal fun NavigateScreen(
             }
         }
         item {
-            Surface(color = Color.White, shape = RoundedCornerShape(22.dp)) {
+            Surface(color = PanelColor, shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Eyebrow("YOUR PATH")
                     route.nodes.forEachIndexed { index, id ->
@@ -136,9 +163,11 @@ internal fun NavigateScreen(
                 }
             }
         }
-        if (state.arrived) item {
-            Button(onClick = onFinish, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Finish walkthrough") }
         }
+        if (state.arrived) item {
+            Button(onClick = {confirmArrival=true}, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("I'm here — confirm arrival") }
+        }
+        if(showTools) {
         item { OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("Export session · JSONL") } }
         item {
             Text("Prompt policy: $promptPolicy", style = MaterialTheme.typography.bodySmall)
@@ -154,5 +183,13 @@ internal fun NavigateScreen(
         }
         item { Text("${if (synthetic) "Synthetic floor" else "User-provided floor"} · Uncalibrated risk weights\n${if (liveMotion) "Live motion events" else "Simulated motion events"} are labelled in the export. Arrival is not a measured accuracy result.",
             style = MaterialTheme.typography.bodySmall, color = Muted) }
+        }
     }
+    if(showPosition)AlertDialog(onDismissRequest={showPosition=false},title={Text("Confirm your current place")},text={
+        Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+            Text("Choose only a place you recognise. This resets the position estimate and replans from there.")
+            NodePicker("I am at",graph.nodes.values.filter{it.roomName.isNotBlank()},positionId,{positionId=it})
+        }
+    },confirmButton={TextButton(onClick={onConfirmPosition(positionId);showPosition=false},enabled=graph.nodes[positionId]?.roomName?.isNotBlank()==true){Text("Confirm this location")}},dismissButton={TextButton(onClick={showPosition=false}){Text("Cancel")}})
+    if(confirmArrival)AlertDialog(onDismissRequest={confirmArrival=false},title={Text("Are you at ${graph.nodes.getValue(destinationId).displayName}?")},text={Text("Check the place or sign. The distance estimate alone does not establish arrival.")},confirmButton={TextButton(onClick={confirmArrival=false;onFinish()}){Text("Yes, I'm here")}},dismissButton={TextButton(onClick={confirmArrival=false;showPosition=true}){Text("No, check position")}})
 }

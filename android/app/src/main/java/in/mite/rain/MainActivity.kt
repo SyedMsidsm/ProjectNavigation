@@ -19,14 +19,17 @@ import `in`.mite.rain.ui.RainViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.rgb(8, 10, 13)),
+        )
         setContent {
             RainTheme {
                 Surface(Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                         val model: RainViewModel = viewModel()
-                        DisposableEffect(model.navigating) {
-                            if (model.navigating) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        DisposableEffect(model.navigating, model.recording) {
+                            if (model.navigating || model.recording) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                         }

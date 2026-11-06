@@ -1,75 +1,79 @@
 edge_id,from_node,to_node,length_m,bearing_deg,corridor_id,bidirectional,has_stairs,notes
-E001,C00,C01,8.05,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E002,C01,C02,5.95,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E003,C02,C03,5.6,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E004,C03,C04,4.55,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E005,C04,C05,5.25,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E006,C05,C06,7.0,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E007,C06,C07,7.0,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E008,C07,C08,9.8,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E009,C08,C09,7.0,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E010,C09,C10,5.95,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E011,C10,C11,6.65,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E012,C11,C12,8.4,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E013,C12,C13,7.7,90.0,C,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E014,W00,W01,7.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E015,W01,W02,5.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E016,W02,W03,6.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E017,W03,W04,13.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E018,W04,W05,5.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E019,W05,W06,17.0,0.0,W,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E020,C04,W00,4.0,0.0,WEST,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E021,N00,N01,4.9,270.0,N,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E022,N01,N02,5.6,270.0,N,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E023,W06,N00,4.55,270.0,NORTH_WEST,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E024,X00,X01,3.15,270.0,X,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E025,W05,X00,4.55,270.0,EXAM_APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E026,R00,R01,11.0,0.0,R,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E027,R01,R02,14.0,0.0,R,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E028,R02,R03,13.5,0.0,R,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E029,R03,R04,4.9,90.0,R,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E030,R04,R05,6.0,0.0,R,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E031,C11,R00,5.0,0.0,EAST,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E032,L00,L01,6.5,180.0,L,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E033,L01,L02,6.3,270.0,L,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E034,L02,L03,8.4,270.0,L,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E035,L03,L04,5.6,270.0,L,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E036,L04,L05,8.75,270.0,L,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E037,C08,L00,10.0,180.0,LOBBY,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E038,L05,C04,16.5,0.0,WEST_LOBBY,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E039,ENT,L01,4.0,0.0,LOBBY,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E040,C00,A003,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E041,C01,A002,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E042,C02,A001,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E043,C05,A004,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E044,W02,A005,1.61,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E045,N00,A006,1.8,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E046,N02,A007,1.8,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E047,W04,GRAPHICS,1.61,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E048,W00,MATHS,1.61,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E049,X01,EXAM_W,0.35,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E050,W03,EXAM_S,1.54,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E051,W01,PHY,1.54,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E052,W00,CHEM,1.54,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E053,C01,TUT1,2.3,0.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E054,C02,TUT2,2.3,0.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E055,C00,GTOIL,2.3,0.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E056,C00,TV,2.8,90.0,TOILET_APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E057,TV,TV2,10.0,0.0,TOILET_APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E058,TV2,LTOIL,0.7,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E059,R02,COMPUTER,1.19,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E060,R01,CPROG,1.19,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E061,R03,SERVER,1.19,270.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E062,R01,LIBRARY,1.54,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E063,R04,NCC,2.31,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E064,R05,PE,2.31,90.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E065,C13,STUDY,3.2,0.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E066,C13,STAFF,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E067,C12,GIRLS,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E068,C11,ELECTRICAL,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E069,C10,OFFICE_EXAM,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E070,C09,WAIT,2.0,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E071,L00,OFFICE,5.55,111.11,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E072,L02,RECEPTION,4.03,299.74,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E073,L03,CONF,2.3,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
-E074,L04,PRINCIPAL,2.3,180.0,APPROACH,true,false,PLAN DERIVED: assumed approach/door; estimated metres; sign condition and access unverified
+E001,P000,P001,3.88,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E002,P001,P002,2.12,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E003,P002,P003,1.68,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E004,P003,P004,4.17,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E005,P004,P005,2.56,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E006,P005,P006,2.34,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E007,P006,P007,8.86,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E008,P007,P008,7.17,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E009,P008,P009,7.1,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E010,P009,P010,13.03,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E011,P010,P011,3.07,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E012,P011,P012,4.76,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E013,P012,P013,13.39,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E014,P013,P014,6.66,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E015,P014,P015,1.98,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E016,P015,P016,5.34,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E017,P016,P017,3.73,90.0,MAIN,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E018,P018,P019,5.13,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E019,P019,P020,9.21,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E020,P020,P021,3.04,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E021,P021,P022,14.24,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E022,P022,P023,3.45,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E023,P023,P024,10.36,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E024,P024,P025,1.57,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E025,P025,P026,1.99,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E026,P026,P027,3.56,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E027,P027,P007,4.82,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E028,P007,P028,5.86,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E029,P028,P029,6.49,180.0,WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E030,P030,P031,8.34,90.0,NORTH_WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E031,P031,P018,12.08,90.0,NORTH_WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E032,P018,P032,9.52,90.0,NORTH_WEST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E033,P021,P033,6.59,270.0,EXAM_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E034,P034,P035,5.65,180.0,EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E035,P035,P036,14.86,180.0,EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E036,P036,P037,10.68,180.0,EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E037,P037,P038,5.13,180.0,EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E038,P038,P013,7.43,180.0,EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E039,P034,P039,12.59,90.0,NORTH_EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E040,P039,P040,10.61,90.0,NORTH_EAST,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E041,P010,P041,3.77,180.0,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E042,P041,P042,5.23,180.0,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E043,P042,P043,4.08,180.0,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E044,P043,P044,2.04,127.96,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E045,P044,P045,2.93,90.0,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E046,P045,P046,9.33,176.4,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E047,P046,P047,17.73,92.71,LOBBY,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E048,P043,P048,2.9,217.34,RECEPTION_PASSAGE,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E049,P048,P049,3.3,257.18,RECEPTION_PASSAGE,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E050,P049,P050,11.71,270.0,RECEPTION_PASSAGE,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E051,P031,A007,1.99,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E052,P020,A006,1.98,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E053,P019,GRAPHICS_N,1.32,90.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E054,P023,GRAPHICS,1.32,90.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E055,P033,EXAM_W,1.46,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E056,P022,EXAM_S,1.83,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E057,P024,A005,1.1,90.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E058,P025,PHY,1.98,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E059,P026,MATHS,1.1,90.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E060,P027,CHEM,1.98,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E061,P002,TOILETS,2.72,0.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E062,P004,TUT1,2.62,0.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E063,P006,TUT2,2.72,0.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E064,P001,A003,1.47,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E065,P003,A002,1.78,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E066,P005,A001,1.78,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E067,P008,A004,1.47,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E068,P035,COMPUTER_N,1.46,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E069,P036,COMPUTER,1.24,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E070,P037,CPROG,1.46,270.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E071,P015,LIBRARY,3.04,0.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E072,P012,WAIT,1.47,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E073,P014,GIRLS,1.15,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E074,P016,STAFF,1.15,180.0,DOOR_APPROACH,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified
+E075,P028,STAIR_W,1.32,270.0,STAIR_ACCESS,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified; stair access only: route stops before flight; upper floor not mapped
+E076,P042,STAIR_C,1.02,270.0,STAIR_ACCESS,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified; stair access only: route stops before flight; upper floor not mapped
+E077,P038,STAIR_E,1.17,90.0,STAIR_ACCESS,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified; stair access only: route stops before flight; upper floor not mapped
+E078,P044,ENT,3.56,180.0,LOBBY_REFERENCE,true,false,USER MARKUP: drawing-derived position; estimated metres; sign condition and field access unverified

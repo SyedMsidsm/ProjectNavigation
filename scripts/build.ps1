@@ -16,8 +16,18 @@ try {
     else { & $gradle ':core:test' ':app:assembleDebug' ':app:lintDebug' '--console=plain' }
     if ($LASTEXITCODE -ne 0) { throw 'Build or tests failed; see errors above.' }
     if ($PhoneTests) {
-        & $gradle ':app:connectedDebugAndroidTest' '--console=plain'
-        if ($LASTEXITCODE -ne 0) { throw 'On-phone integration tests failed; inspect app/build/reports/androidTests/connected.' }
+        # AGP connected tests uninstall the target afterward, erasing private maps/models.
+        # In-place installation plus instrumentation preserves the user's app data.
+        & $gradle ':app:assembleDebugAndroidTest' '--console=plain'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not build phone integration tests.' }
+        $rainTestAdb = "$env:ANDROID_HOME/platform-tools/adb.exe"
+        & $rainTestAdb install -r 'app/build/outputs/apk/debug/app-debug.apk'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not update RAIN for phone tests.' }
+        & $rainTestAdb install -r 'app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not install phone test APK.' }
+        $rainTestOutput = & $rainTestAdb shell am instrument -w 'in.mite.rain.test/androidx.test.runner.AndroidJUnitRunner' 2>&1
+        $rainTestOutput | Write-Output
+        if ($LASTEXITCODE -ne 0 -or ($rainTestOutput -join "`n") -notmatch 'OK \(\d+ tests\)') { throw 'Phone integration tests did not finish successfully.' }
     }
     if (!$CoreOnly) {
         New-Item -ItemType Directory -Force "$rainRoot/output" | Out-Null

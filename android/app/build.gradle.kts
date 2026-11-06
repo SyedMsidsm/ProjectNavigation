@@ -11,8 +11,8 @@ android {
         applicationId = "in.mite.rain"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0-ar-walking"
+        versionCode = 17
+        versionName = "0.9.6-guided-setup"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -30,6 +30,7 @@ android {
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.13.1")
     implementation("com.google.mediapipe:tasks-vision:0.10.32")
     implementation(libs.arcore)
     implementation(project(":core"))

@@ -37,7 +37,8 @@ class PromptPolicy(private val settings: PlannerSettings = PlannerSettings(),
 data class NavigationState(val distanceWalkedM: Double, val remainingDistanceM: Double,
                            val currentNodeId: String, val currentArcIndex: Int, val offsetM: Double,
                            val arrived: Boolean, val offRouteReason: String?, val promptReason: String?,
-                           val instruction: String, val driftM: Double)
+                           val instruction: String, val driftM: Double,
+                           val confidence: Double = 0.9, val floorChangePending: Boolean = false)
 
 /** Lightweight route-following PDR. It estimates progress, not an independently measured position.
  * At a planned turn of at least 60 degrees the tracker waits for matching relative-yaw
@@ -73,7 +74,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
 
     fun advance(distanceM: Double): NavigationState {
         require(distanceM.isFinite() && distanceM >= 0)
-        if (route.arcs.isEmpty() || offRoute != null) return snapshot()
+        if (route.arcs.isEmpty() || offRoute != null || route.arcs[arcIndex].transition.isNotBlank()) return snapshot()
         walked += distanceM
         distanceSinceFix += distanceM
         offset += distanceM
@@ -84,7 +85,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
 
     fun turn(angleDeg: Double): NavigationState {
         require(angleDeg.isFinite())
-        if (arrived || offRoute != null || abs(angleDeg) < 30) return snapshot()
+        if (arrived || offRoute != null || route.arcs[arcIndex].transition.isNotBlank() || abs(angleDeg) < 30) return snapshot()
         val arc = route.arcs[arcIndex]
         val nearEnd = arc.lengthM - offset <= 3.0
         val next = route.transitions.getOrNull(arcIndex + 1)
@@ -135,6 +136,13 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
     }
 
     fun dismissPrompt(): NavigationState { prompt = null; return snapshot() }
+    fun requirePositionCheck(reason: String): NavigationState { flag(reason); return snapshot() }
+
+    fun confirmFloorChange(): NavigationState {
+        require(route.arcs.isNotEmpty() && route.arcs[arcIndex].transition.isNotBlank() && offRoute == null)
+        val end = route.arcs[arcIndex].toNode
+        return fixAtNode(end)
+    }
 
     /** Import measured AR route progress without replaying steps or synthetic turn events. */
     fun applyArProgress(index: Int, offsetM: Double, needsFix: Boolean): NavigationState {
@@ -153,16 +161,20 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
     }
 
     fun snapshot(): NavigationState {
+        if (route.arcs.isEmpty()) return NavigationState(walked, 0.0, route.nodes.last(), 0, 0.0, true, offRoute, prompt, instruction(), 0.0, confidence)
         val along = if (arrived) route.totalLengthM else starts[arcIndex] + min(offset, route.arcs[arcIndex].lengthM)
         val node = if (arrived) route.nodes.last() else route.arcs[arcIndex].let { if (offset > it.lengthM / 2) it.toNode else it.fromNode }
         return NavigationState(walked, max(0.0, route.totalLengthM - along), node, arcIndex, offset, arrived,
-            offRoute, prompt, instruction(), 0.05 * distanceSinceFix + 1.5 * turnsSinceFix)
+            offRoute, prompt, instruction(), 0.05 * distanceSinceFix + 1.5 * turnsSinceFix,
+            (confidence - .008 * distanceSinceFix - .04 * turnsSinceFix).coerceIn(.05, .95),
+            !arrived && route.arcs[arcIndex].transition.isNotBlank())
     }
 
     private fun progress() {
         if (route.arcs.isEmpty() || offRoute != null) return
         while (true) {
             val arc = route.arcs[arcIndex]
+            if (arc.transition.isNotBlank()) { offset = 0.0; return }
             if (offset < arc.lengthM) return
             if (arcIndex == route.arcs.lastIndex) {
                 // Arrival is a PDR estimate until the user confirms the destination sign.
@@ -171,7 +183,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
                 return
             }
             val next = route.transitions[arcIndex + 1]
-            if (next.turnClass in setOf(TurnClass.TURN, TurnClass.U_TURN) && acceptedTurnIndex != arcIndex + 1) {
+            if (next.outgoingArc.transition.isBlank() && arc.transition.isBlank() && next.turnClass in setOf(TurnClass.TURN, TurnClass.U_TURN) && acceptedTurnIndex != arcIndex + 1) {
                 if (offset > arc.lengthM + 4.0) flag("missed_turn")
                 else if (offset > 1.3 * arc.lengthM + 3.0) flag("overrun")
                 return
@@ -199,6 +211,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
         if (offRoute != null) return "Pause and scan a nearby room sign to confirm your location."
         if (arrived) return "Estimated arrival at ${graph.nodes.getValue(route.nodes.last()).displayName}. Confirm the room sign."
         val arc = route.arcs[arcIndex]
+        if (arc.transition.isNotBlank()) return "Take the ${arc.transition} to floor ${graph.nodes.getValue(arc.toNode).floor}. Tap Change floor only after reaching it."
         val remaining = max(0.0, arc.lengthM - offset).roundToInt()
         val next = route.transitions.getOrNull(arcIndex + 1)
         if (next == null) return "Walk $remaining m to ${graph.nodes.getValue(arc.toNode).displayName}."
@@ -208,8 +221,9 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
             TurnClass.TURN -> if (next.angleDeg > 0) "turn right" else "turn left"
             TurnClass.U_TURN -> "turn around"
         }
-        return if (remaining == 0) "${action.replaceFirstChar(Char::uppercaseChar)} at ${graph.nodes.getValue(arc.toNode).displayName}."
-        else "Walk $remaining m, then $action at ${graph.nodes.getValue(arc.toNode).displayName}."
+        val landmark = graph.nodes.getValue(arc.toNode).roomName.takeIf { it.isNotBlank() }?.let { " at $it" }.orEmpty()
+        return if (remaining == 0) "${action.replaceFirstChar(Char::uppercaseChar)}$landmark."
+        else "Walk $remaining m, then $action$landmark."
     }
 }
 

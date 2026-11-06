@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,26 +19,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-internal val Ink = Color(0xFF173F39)
-internal val Muted = Color(0xFF677770)
-internal val CanvasColor = Color(0xFFF5F5EF)
-internal val PaleGreen = Color(0xFFE7EFE7)
-internal val Accent = Color(0xFFF1AB69)
-internal val SoftOrange = Color(0xFFFFEBD6)
-internal val ErrorInk = Color(0xFF9E3D2F)
+internal val PanelColor = Color(0xFF10151C)
+internal val Ink = Color(0xFFF3F4F6)
+internal val Muted = Color(0xFFA2ABB6)
+internal val CanvasColor = Color(0xFF080A0D)
+internal val PaleGreen = Color(0xFF1A2029)
+internal val Accent = Color(0xFF24D8BA)
+internal val SoftOrange = Color(0xFF302119)
+internal val ErrorInk = Color(0xFFFFA077)
 
 @Composable
 fun RainTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Ink, onPrimary = Color.White, primaryContainer = PaleGreen, onPrimaryContainer = Ink,
-            secondary = Color(0xFFAD6429), secondaryContainer = SoftOrange, onSecondaryContainer = Ink,
-            background = CanvasColor, surface = Color.White,
+        colorScheme = darkColorScheme(
+            primary = Accent, onPrimary = CanvasColor, primaryContainer = PaleGreen, onPrimaryContainer = Ink,
+            secondary = Accent, secondaryContainer = PaleGreen, onSecondaryContainer = Ink,
+            background = CanvasColor, surface = PanelColor,
             onBackground = Ink, onSurface = Ink, onSurfaceVariant = Muted,
-            surfaceVariant = PaleGreen, outline = Color(0xFFC8D2C8), error = ErrorInk,
+            surfaceVariant = PaleGreen, outline = Color(0xFF38414D), error = ErrorInk,
+        ),
+        shapes = androidx.compose.material3.Shapes(
+            small = RoundedCornerShape(16.dp), medium = RoundedCornerShape(24.dp),
+            large = RoundedCornerShape(28.dp), extraLarge = RoundedCornerShape(32.dp),
         ),
         typography = Typography(
-            headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+            headlineLarge = TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
             headlineMedium = TextStyle(fontSize = 27.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
             titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
             titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold),
@@ -58,7 +63,7 @@ internal fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color =
 }
 
 @Composable
-internal fun Tag(text: String, color: Color = PaleGreen, ink: Color = Ink) {
+internal fun Tag(text: String, color: Color = PaleGreen, ink: Color = if (color == Accent) CanvasColor else Ink) {
     Text(text, Modifier.background(color, RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 5.dp),
         color = ink, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
 }

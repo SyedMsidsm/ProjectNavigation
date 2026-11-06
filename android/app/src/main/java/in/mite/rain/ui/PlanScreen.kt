@@ -41,64 +41,67 @@ internal fun PlanScreen(
     onDemoSign: () -> Unit, onNavigate: () -> Unit, onExport: () -> Unit,
     hasSession: Boolean, status: String?, floorName: String, synthetic: Boolean,
     onCalibration: () -> Unit, onMaps: () -> Unit, ready: Boolean, planDerived: Boolean = false, onCollect: () -> Unit = {},
+    searchPanel: @Composable () -> Unit = {},
 ) {
+    var showOptions by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(18.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp, 20.dp, 22.dp, 32.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("RAIN", style = MaterialTheme.typography.titleLarge); Eyebrow("Risk-aware indoor navigation") }
+                Text("Navigate", style = MaterialTheme.typography.titleLarge)
                 TextButton(onClick = onSettings) { Text("Settings") }
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (planDerived) Text("PLAN DRAFT · Doorways and route distances are estimated. Review the passages before a walking trial.", color = Muted)
-                Text("A clearer path\nthrough your building.", style = MaterialTheme.typography.headlineLarge)
-                Text("Find a room. Compare the paths. Walk with confidence.", style = MaterialTheme.typography.bodyLarge, color = Muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Tag("Works offline"); Tag("No beacons"); Tag("Prototype", SoftOrange) }
+                Text("Where do you want to go?", style = MaterialTheme.typography.headlineMedium)
+
+                Text("Map: $floorName", style = MaterialTheme.typography.titleMedium)
             }
         }
-        item {
+        if(showOptions) item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onCalibration, enabled = ready, modifier = Modifier.weight(1f)) { Text("Calibrate walking") }
                 OutlinedButton(onClick = onMaps, enabled = ready, modifier = Modifier.weight(1f)) { Text("Floor maps") }
             }
-            OutlinedButton(onClick = onCollect, enabled = ready, modifier = Modifier.fillMaxWidth()) { Text("AI place collection") }
+
         }
         item {
-            Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
+            Surface(shape = RoundedCornerShape(24.dp), color = PanelColor) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Eyebrow("01 / CHOOSE YOUR JOURNEY")
-                    NodePicker("Starting point", graph.nodes.values.toList(), startId, onStart)
-                    NodePicker("Destination", graph.nodes.values.filter { it.roomName.isNotBlank() }, destinationId, onDestination)
+
+
+                    NodePicker("Current place", graph.nodes.values.toList(), startId, onStart)
+                    searchPanel()
+                    NodePicker("Or choose a saved place", graph.nodes.values.filter { it.roomName.isNotBlank() }, destinationId, onDestination)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = onScan, modifier = Modifier.weight(1f)) { Text("Scan a sign") }
-                        TextButton(onClick = onDemoSign, modifier = Modifier.weight(1f)) { Text("Try sample text") }
+
                     }
                 }
             }
         }
-        if (status != null) item { Notice("Session update", status) }
-        item { FloorMap(graph, routes[kind], startId, destinationId, floorName = floorName, synthetic = synthetic) }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Eyebrow("02 / COMPARE THE OPTIONS")
-                Text("A little further. A little clearer.", style = MaterialTheme.typography.titleLarge)
-                Text("Risk scores use hand-set demo weights. They are not measured error probabilities.",
-                    style = MaterialTheme.typography.bodySmall, color = Muted)
-            }
-        }
-        for (planner in listOf(PlannerKind.RISK, PlannerKind.SHORTEST, PlannerKind.SIMPLEST)) {
-            item { RouteChoice(planner, routes[planner], kind == planner) { onKind(planner) } }
-        }
+        if (showOptions && status != null) item { Notice("Session update", status) }
         item {
             Button(onClick = onNavigate, enabled = ready && routes[kind] != null && startId != destinationId,
                 modifier = Modifier.fillMaxWidth().height(58.dp), shape = RoundedCornerShape(18.dp)) {
                 Text(if (startId == destinationId) "Choose a different destination" else "Start navigation  →")
             }
         }
-        if (hasSession) item { OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("Export last session · JSONL") } }
+        item { FloorMap(graph, routes[kind], startId, destinationId, floorName = floorName, synthetic = synthetic) }
         item {
+            if(showOptions) Text("Selected route: ${kind.title()}", style=MaterialTheme.typography.titleMedium)
+            TextButton(onClick={showOptions=!showOptions}) { Text(if(showOptions) "Hide route options" else "More options") }
+        }
+        if(showOptions) {
+            item { Text("Risk scores are experimental, not measured error probabilities.", color=Muted) }
+            for (planner in listOf(PlannerKind.RISK, PlannerKind.SHORTEST, PlannerKind.SIMPLEST)) {
+                item { RouteChoice(planner, routes[planner], kind == planner) { onKind(planner) } }
+            }
+        }
+        if (hasSession && showOptions) item { OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("Export last session · JSONL") } }
+        if(showOptions) item {
             Text((if (synthetic) "PRESENTATION DEMO · Synthetic floor data" else "USER-PROVIDED FLOOR · Verify measurements before walking") +
                 "\nCamera text recognition is live; route risk is heuristic.",
                 style = MaterialTheme.typography.bodySmall, color = Muted)
@@ -126,12 +129,10 @@ internal fun NodePicker(label: String, nodes: List<Node>, selectedId: String, on
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                 placeholder = { Text("Search rooms or aliases") }, shape = RoundedCornerShape(14.dp))
-            val matches = nodes.filter { n ->
-                query.isBlank() || n.displayName.contains(query, true) || n.id.contains(query, true) || n.aliases.any { it.contains(query, true) }
-            }.take(10)
+            val matches = (if(query.isBlank()) nodes else `in`.mite.rain.core.DestinationSearch.matches(query,nodes)).take(10)
             if (matches.isEmpty()) Text("No matching rooms", Modifier.padding(12.dp), color = Muted)
             matches.forEach { node ->
-                DropdownMenuItem(text = { Text(node.displayName) }, onClick = { onSelect(node.id); expanded = false; query = "" })
+                DropdownMenuItem(text = { Text("${node.displayName} · floor ${node.floor}") }, onClick = { onSelect(node.id); expanded = false; query = "" })
             }
         }
     }

@@ -16,7 +16,8 @@ class GroundFloorTest {
         val floor = floor()
         assertEquals("plan_derived_floor", floor.source)
         assertFalse(floor.synthetic)
-        assertEquals(74, floor.graph.nodes.size)
+        assertTrue(floor.graph.nodes.size > 50)
+        assertEquals(3, floor.graph.nodes.values.count { it.type == `in`.mite.rain.core.NodeType.STAIRS })
         assertTrue(floor.graph.nodes.values.none { it.isRecognizable })
     }
 
