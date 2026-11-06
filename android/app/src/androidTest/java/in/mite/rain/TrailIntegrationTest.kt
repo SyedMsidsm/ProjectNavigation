@@ -9,6 +9,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TrailIntegrationTest {
+    @Test fun oppositeRoomLabelsSurviveSavingAndReloading() {
+        val recorder = TrailRecorder(.7,"Entrance")
+        repeat(5) { recorder.step() }
+        recorder.markBeside("Lab",emptyList(),"left")
+        recorder.markBeside("Office",emptyList(),"right")
+        val graph = FloorPackStore.parse(TrailLibrary.pack("Corridor",recorder.finish()).json).floor.graph
+        val lab = graph.nodes.values.single { it.roomName == "Lab" }
+        val office = graph.nodes.values.single { it.roomName == "Office" }
+        assertEquals("left",lab.corridorSide)
+        assertEquals("label_bearing=270.0",lab.notes)
+        assertEquals("right",office.corridorSide)
+        assertEquals(0.0,RoutePlanner(graph).plan(lab.id,office.id)!!.totalLengthM,.001)
+    }
     private fun trail():Graph {
         val recorder=TrailRecorder(.7,"Lobby")
         repeat(5){recorder.step()};recorder.mark("Fees, office",listOf("Payments"))

@@ -16,6 +16,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -33,6 +35,8 @@ import `in`.mite.rain.core.Graph
 import `in`.mite.rain.core.NavigationState
 import `in`.mite.rain.core.PlannerKind
 import `in`.mite.rain.core.Route
+import `in`.mite.rain.core.guidanceEndIndex
+import `in`.mite.rain.core.distanceToGuidanceEnd
 
 @Composable
 internal fun NavigateScreen(
@@ -42,7 +46,7 @@ internal fun NavigateScreen(
     onSampleSign: () -> Unit, onFinish: () -> Unit, onExit: () -> Unit, onExport: () -> Unit,
     onAr: () -> Unit,
     floorName: String, synthetic: Boolean, feedbackStatus: String, promptPolicy: String,
-    onConfirmPosition: (String) -> Unit = {}, onConfirmFloor: () -> Unit = {}, stepLengthM: Double = .7,
+    onConfirmPosition: (String) -> Unit = {}, onConfirmFloor: () -> Unit = {}, onReturn: ()->Unit = {}, stepLengthM: Double = .7,
     voiceOn: Boolean, onVoice: () -> Unit, headingDegrees: Double, headingAligned: Boolean, onAlignHeading: () -> Unit,
     onRepeat: () -> Unit, onObserver: (String) -> Unit, observerStatus: String?, planDerived: Boolean = false,
 ) {
@@ -53,6 +57,7 @@ internal fun NavigateScreen(
     var confirmArrival by remember { mutableStateOf(false) }
     val destinationId = route.nodes.last()
     val routeProgress = route.totalLengthM - state.remainingDistanceM
+    val markerDistance by animateFloatAsState(routeProgress.toFloat(), tween(220), label="Walking position")
     val progress = if (route.totalLengthM <= 0) 1f else (routeProgress / route.totalLengthM).toFloat().coerceIn(0f, 1f)
     LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 8.dp, 16.dp, 24.dp)) {
@@ -69,12 +74,12 @@ internal fun NavigateScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("To ${graph.nodes.getValue(destinationId).displayName}", style = MaterialTheme.typography.labelLarge, color = Muted)
                     val currentArc = route.arcs.getOrNull(state.currentArcIndex)
-                    val nextTurn = route.transitions.getOrNull(state.currentArcIndex + 1)
+                    val nextTurn = route.transitions.getOrNull(route.guidanceEndIndex(state.currentArcIndex) + 1)
                     val arrow = when {
                         state.offRouteReason != null -> "?"
                         state.floorChangePending -> "↕"
                         state.arrived -> "✓"
-                        currentArc != null && currentArc.lengthM-state.offsetM <= 3 && nextTurn != null && kotlin.math.abs(nextTurn.angleDeg)>=60 -> if(kotlin.math.abs(nextTurn.angleDeg)>135)"↶" else if(nextTurn.angleDeg>0)"→" else "←"
+                        currentArc != null && route.distanceToGuidanceEnd(state) <= 3 && nextTurn != null && kotlin.math.abs(nextTurn.angleDeg)>=60 -> if(kotlin.math.abs(nextTurn.angleDeg)>135)"↶" else if(nextTurn.angleDeg>0)"→" else "←"
                         else -> "↑"
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -93,12 +98,17 @@ internal fun NavigateScreen(
                 }
             }
         }
-        item { FloorMap(graph, route, route.nodes.first(), destinationId, routeProgress, navigating = true, floorName = floorName, synthetic = synthetic,selectedFloor=graph.nodes.getValue(state.currentNodeId).floor, headingDegrees=if(liveMotion && headingAligned) headingDegrees else route.arcs.getOrNull(state.currentArcIndex)?.bearingDeg) }
+        item { FloorMap(graph, route, route.nodes.first(), destinationId, markerDistance.toDouble(), navigating = true, floorName = floorName, synthetic = synthetic,selectedFloor=graph.nodes.getValue(state.currentNodeId).floor, headingDegrees=if(liveMotion) headingDegrees.takeIf { headingAligned } else route.arcs.getOrNull(state.currentArcIndex)?.bearingDeg) }
         if (liveMotion && !state.arrived) item {
             if (!headingAligned) Text("Face along the highlighted corridor ahead, then align the arrow. This is relative phone direction, not a compass.", style = MaterialTheme.typography.bodySmall, color = Muted)
             TextButton(onClick = onAlignHeading) { Text(if (headingAligned) "Realign direction" else "I'm facing the route · Align arrow") }
         }
-        if (state.offRouteReason != null) item {
+        if (state.returnSteps != null) item {
+            val target=if(state.currentArcIndex==route.arcs.lastIndex) "destination" else "corner"
+            Text("About ${state.returnSteps} steps back to the $target",style=MaterialTheme.typography.titleMedium)
+            if(state.returning) Button(onClick={onConfirmPosition(route.arcs[state.currentArcIndex].toNode)}) { Text("I’m at the $target") }
+            else Button(onClick=onReturn) { Text("I’m heading back") }
+        } else if (state.offRouteReason != null) item {
             Notice("Let's check your position", "${state.offRouteReason}. Scan a known sign to anchor your location and calculate a fresh route.", warning = true)
         } else if (state.promptReason != null) item {
             Notice("A good moment to read a sign", "${state.promptReason}. A known sign can reset the motion estimate.", warning = true)
@@ -135,7 +145,7 @@ internal fun NavigateScreen(
                     }
                     if (!liveMotion) {
                         Text("DEMO INPUTS · These simulate movement", style = MaterialTheme.typography.labelSmall, color = Color(0xFFAD6429))
-                        Button(onClick = onDemoSteps, enabled = state.offRouteReason == null && route.arcs.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Advance 5 simulated steps") }
+                        Button(onClick = onDemoSteps, enabled = (state.offRouteReason == null || state.returnSteps != null) && route.arcs.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Advance 5 simulated steps") }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { onDemoTurn(-90.0) }, modifier = Modifier.weight(1f), enabled = !state.arrived && state.offRouteReason == null) { Text("Turn left") }
                             OutlinedButton(onClick = { onDemoTurn(90.0) }, modifier = Modifier.weight(1f), enabled = !state.arrived && state.offRouteReason == null) { Text("Turn right") }
@@ -184,6 +194,16 @@ internal fun NavigateScreen(
         item { Text("${if (synthetic) "Synthetic floor" else "User-provided floor"} · Uncalibrated risk weights\n${if (liveMotion) "Live motion events" else "Simulated motion events"} are labelled in the export. Arrival is not a measured accuracy result.",
             style = MaterialTheme.typography.bodySmall, color = Muted) }
         }
+    }
+    var recoveryOpen by remember(state.offRouteReason) { mutableStateOf(state.offRouteReason != null) }
+    if(recoveryOpen && state.offRouteReason!=null) {
+        val corner=route.arcs.getOrNull(state.currentArcIndex)?.toNode
+        val missed=state.returnSteps!=null && corner!=null
+        val target=if(state.currentArcIndex==route.arcs.lastIndex) "destination" else "turn"
+        AlertDialog(onDismissRequest={recoveryOpen=false},title={Text(if(missed)"Did you pass the $target?" else "Check your position")},
+            text={Text(if(missed)"If you passed it, head back along the corridor. About ${state.returnSteps} steps will take you back to the estimated point. Confirm the location when you recognise it." else "Route progress is paused. Scan a known sign or choose a place you recognise to restart guidance.")},
+            confirmButton={TextButton(onClick={recoveryOpen=false;if(missed)onReturn() else {positionId=state.currentNodeId;showPosition=true}}){Text(if(missed)"I’m heading back" else "Choose my location")}},
+            dismissButton={TextButton(onClick={recoveryOpen=false;onScan()}){Text("Scan sign")}})
     }
     if(showPosition)AlertDialog(onDismissRequest={showPosition=false},title={Text("Confirm your current place")},text={
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){

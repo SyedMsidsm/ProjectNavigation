@@ -84,7 +84,8 @@ class RoutePlanner(private val graph: Graph, private val model: RiskModel = Hand
             for (arc in graph.outgoing(state.nodeId)) {
                 if (settings.avoidStairs && arc.hasStairs) continue
                 val incoming = state.incomingArcId?.let(byId::getValue)
-                val angle = incoming?.let { signedTurnDegrees(it.bearingDeg, arc.bearingDeg) } ?: 0.0
+                val angle = if (arc.lengthM == 0.0 || incoming?.lengthM == 0.0) 0.0
+                    else incoming?.let { signedTurnDegrees(it.bearingDeg, arc.bearingDeg) } ?: 0.0
                 val turn = classifyTurn(angle)
                 val risk = model.predict(features(state.nodeId, arc, angle))
                 require(risk.isFinite() && risk in 0.0..1.0) { "Risk model must return a finite score in [0, 1]" }
@@ -121,7 +122,15 @@ class RoutePlanner(private val graph: Graph, private val model: RiskModel = Hand
             reverse += predecessor.transition
             current = predecessor.state
         }
-        val transitions = reverse.asReversed()
+        val ordered = reverse.asReversed()
+        val transitions = ordered.mapIndexed { index, transition ->
+            val arc = transition.outgoingArc
+            if (arc.lengthM != 0.0 || arc.transition.isNotBlank()) transition else {
+                val bearing = ordered.drop(index + 1).firstOrNull { it.outgoingArc.lengthM > 0 }?.outgoingArc?.bearingDeg
+                    ?: ordered.take(index).lastOrNull { it.outgoingArc.lengthM > 0 }?.outgoingArc?.bearingDeg ?: arc.bearingDeg
+                transition.copy(outgoingArc = arc.copy(bearingDeg = bearing))
+            }
+        }
         val arcs = transitions.map { it.outgoingArc }
         return Route(listOf(startId) + arcs.map { it.toNode }, arcs, transitions, arcs.sumOf { it.lengthM },
             distance.getValue(destination), transitions.sumOf { it.risk * if (it.scheduledPrompt) 1.0 - it.scanEffectiveness else 1.0 },

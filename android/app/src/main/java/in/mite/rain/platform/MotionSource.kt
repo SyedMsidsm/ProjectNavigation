@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import `in`.mite.rain.core.ReferenceTurnPipeline
 import `in`.mite.rain.core.ReferenceStepDetector
 import `in`.mite.rain.core.WalkEvent
+import `in`.mite.rain.core.WalkingTurnWindow
 import `in`.mite.rain.core.WalkingCadence
 import kotlin.math.*
 
@@ -24,11 +25,17 @@ class MotionSource(context: Context) : SensorEventListener {
     private var stepCallback: () -> Unit = {}
     private var turnCallback: (Double) -> Unit = {}
     private var headingCallback: (Double) -> Unit = {}
+    private val walkingTurns = WalkingTurnWindow()
+    private var guiding = false
+    private var allowSingleHeading = false
+    private var quietSteps = false
     private var handlingUntil = 0L
     private var headingTimestamp = 0L
     private var turns = ReferenceTurnPipeline()
     private var peaks = ReferenceStepDetector()
     private var acceleration: Double? = null
+    private var verticalAcceleration = 0.0
+    private var horizontalAcceleration = 0.0
     private var usingGravitySensor = false
     private var startNs = 0L
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -36,13 +43,14 @@ class MotionSource(context: Context) : SensorEventListener {
     private var gravityReady = false
     private var cadence = WalkingCadence()
     private var useFallback = false
+    private var lastHardwareMs = 0L
     private var active = false
     // Retain the last five minutes independently of Android's rotating log buffer.
     // Buffered in memory while walking; written only when motion stops.
     private val diagnosticRows = java.util.ArrayDeque<String>()
     private fun diagnostic(row: String) {
         if (!`in`.mite.rain.BuildConfig.DEBUG) return
-        if (diagnosticRows.size >= 16000) diagnosticRows.removeFirst()
+        if (diagnosticRows.size >= 32000) diagnosticRows.removeFirst()
         diagnosticRows.addLast(row)
     }
     private val sourcePreferences = appContext.getSharedPreferences("rain_motion", Context.MODE_PRIVATE)
@@ -50,14 +58,20 @@ class MotionSource(context: Context) : SensorEventListener {
         get() = sourcePreferences.getBoolean("accelerometer", false)
         set(value) { sourcePreferences.edit().putBoolean("accelerometer", value).apply() }
 
-    fun start(onStep: () -> Unit, onTurn: (Double) -> Unit, onHeadingDelta: (Double) -> Unit = {}, recordingTrail: Boolean = false) {
+    fun start(onStep: () -> Unit, onTurn: (Double) -> Unit, onHeadingDelta: (Double) -> Unit = {}, recordingTrail: Boolean = false, navigating: Boolean = false) {
         stepCallback = onStep
         turnCallback = onTurn
         headingCallback = onHeadingDelta
         if (active) return
-        peaks = ReferenceStepDetector(detectQuietSteps = recordingTrail)
-        turns = ReferenceTurnPipeline(confirmationSteps = if (recordingTrail) 1 else 2)
+        guiding = navigating
+        walkingTurns.reset()
+        allowSingleHeading = recordingTrail
+        quietSteps = recordingTrail || navigating
+        peaks = ReferenceStepDetector(detectQuietSteps = quietSteps)
+        turns = ReferenceTurnPipeline(confirmationSteps = if (recordingTrail || navigating) 1 else 2)
+        handlingUntil = 0L
         startNs = android.os.SystemClock.elapsedRealtimeNanos()
+        lastHardwareMs = startNs / 1_000_000
         diagnostic("start,${startNs / 1_000_000}")
         val accelerometer = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val rotation = manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
@@ -98,8 +112,10 @@ class MotionSource(context: Context) : SensorEventListener {
         val ms = event.timestamp / 1_000_000
         when (event.sensor.type) {
             Sensor.TYPE_STEP_DETECTOR -> if (!useFallback && ms >= handlingUntil) {
+                if(ms <= lastHardwareMs) return
+                lastHardwareMs = ms
                 android.util.Log.d("RainMotion", "hardware step at $ms")
-                dispatch(turns.step(ms))
+                acceptStep(ms)
             }
             Sensor.TYPE_GRAVITY -> {
                 val vector = DoubleArray(3) { event.values[it].toDouble() }
@@ -111,9 +127,36 @@ class MotionSource(context: Context) : SensorEventListener {
                 val vector = DoubleArray(3) { event.values[it].toDouble() }
                 if (!vector.all { it.isFinite() }) return
                 acceleration = sqrt(vector.sumOf { it * it })
+                if (gravityReady) {
+                    val g = sqrt(gravityVector.sumOf { it*it })
+                    if(g > 0) {
+                        val projected = (0..2).sumOf { vector[it]*gravityVector[it] } / g
+                        verticalAcceleration = projected-g
+                        horizontalAcceleration = sqrt((vector.sumOf { it*it }-projected*projected).coerceAtLeast(0.0))
+                    }
+                }
                 if (!usingGravitySensor) {
                     gravityVector = if (!gravityReady) vector else DoubleArray(3) { .8 * gravityVector[it] + .2 * vector[it] }
                     gravityReady = true
+                }
+                diagnostic("accel,$ms,$acceleration,$verticalAcceleration,$horizontalAcceleration")
+                // Each acceleration sample keeps its own timestamp. Gyroscope delivery
+                // must not duplicate or skip the peaks used for walking distance.
+                if (gravityReady && ms >= handlingUntil) {
+                    peaks.sample(ms, acceleration!!)?.let { peak ->
+                        val steps = cadence.peak(peak)
+                        diagnostic("peak,$peak,${steps.size}")
+                        if (!useFallback) {
+                            // Switch once per session only after sustained software cadence
+                            // and hardware silence. Never replay already credited hardware steps.
+                            if (steps.isEmpty() || peak-lastHardwareMs < 4500) return@let
+                            useFallback=true
+                            status="Motion steps · hardware detector silent"
+                            diagnostic("fallback,$peak")
+                        }
+                        if (allowSingleHeading && steps.isEmpty()) dispatch(turns.confirmRecordingHeading(peak))
+                        steps.forEach(::acceptStep)
+                    }
                 }
             }
             Sensor.TYPE_GYROSCOPE -> if (gravityReady && acceleration != null) {
@@ -127,6 +170,7 @@ class MotionSource(context: Context) : SensorEventListener {
                         // A normal upright change of walking direction rotates about gravity.
                         if (ms >= handlingUntil) {
                             dispatch(turns.reset())
+                            peaks = ReferenceStepDetector(detectQuietSteps = quietSteps)
                             cadence = WalkingCadence()
                         }
                         handlingUntil = ms + 350
@@ -138,19 +182,17 @@ class MotionSource(context: Context) : SensorEventListener {
                     // Display-only yaw: no turn threshold and no synthetic walking events.
                     if (elapsed in 1..200_000_000 && degrees.isFinite())
                         headingCallback(degrees * elapsed / 1_000_000_000.0)
-                    diagnostic("motion,$ms,$acceleration,$degrees")
-                    // The reference processes acceleration peaks on the gyro clock,
-                    // before the settled-turn detector for that same sample.
-                    if (useFallback) peaks.sample(ms, acceleration!!)?.let {
-                        android.util.Log.d("RainMotion", "reference motion step at $it")
-                        val steps = cadence.peak(it)
-                        if (steps.isEmpty()) dispatch(turns.confirmRecordingHeading(it))
-                        steps.forEach { peak -> dispatch(turns.step(peak)) }
-                    }
-                    dispatch(turns.rotation(degrees, ms))
+                    diagnostic("motion,$ms,$acceleration,$degrees,$verticalAcceleration,$horizontalAcceleration,$tiltRate")
+                    if (guiding) walkingTurns.rotate(degrees,ms)
+                    if (!guiding) dispatch(turns.rotation(degrees, ms))
                 }
             }
         }
+    }
+    private fun acceptStep(time: Long) {
+        diagnostic("accepted_step,$time")
+        if (guiding) { walkingTurns.atStep(time)?.let(turnCallback); stepCallback() }
+        else dispatch(turns.step(time))
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     private fun dispatch(events: List<WalkEvent>) { events.forEach { when (it) { WalkEvent.Step -> stepCallback(); is WalkEvent.Turn -> turnCallback(it.degrees) } } }

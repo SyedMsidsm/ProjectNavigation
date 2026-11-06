@@ -1,0 +1,35 @@
+# Motion and route recovery investigation, 6 November 2026
+
+The failing S24 session started at the last recorded place and selected the entrance. RAIN accepted 17 steps. The navigation log then reported missed_turn without an accepted turn event. The raw gyro stream includes a left rotation. A later interruption replaced the original reason in the previous build. The route tracker intentionally freezes the position estimate when it loses the route. These observations explain the apparent freeze; they do not establish how many physical steps were taken.
+
+The old cadence filter released two buffered steps as soon as it saw two plausible peaks. Those events could come from a grip change or sway. Its debug event timestamps reflect callback delivery, so two adjacent rows alone cannot establish two separate real footfalls. Recording used quiet-step detection and one turn confirmation while guidance used louder steps and two confirmations. That mismatch matters when following a trail in reverse.
+
+## Sources and engineering decisions
+
+- [Android motion sensor guide](https://developer.android.com/develop/sensors-and-location/sensors/sensors_motion) distinguishes raw acceleration, gravity, linear acceleration, relative rotation, step detector and step counter. Detector events are expected within two seconds; the counter may take up to ten. The earlier S24 trials produced few detector events despite permission. Keep source selection observable. A delayed cumulative counter is a possible independent session total, but cannot by itself place an individual footfall at a corner.
+- [Oxford Inertial Odometry Dataset](https://arxiv.org/abs/1809.07491) separately labels handheld, pocket, bag, trolley and different motion modes. Test these modes separately on RAIN. Hand motion resembles walking in scalar accelerometer data. A result for a phone facing forward cannot establish body heading after a pocket or bag moves.
+- [RoNIN implementation](https://github.com/Sachini/ronin) is a research baseline for learned inertial odometry. Before shipping such a model, reproduce preprocessing, benchmark target-phone inference and compare drift and false positives on independently labelled routes. Gemma is for place language only.
+- [Community reports](https://www.reddit.com/r/samsunggalaxy/comments/1rj30fj/samsung_health_step_counter_doesnt_show_live/) describe delayed or unwanted counts in other Samsung apps. They motivate comparison trials but cannot diagnose this particular handset.
+- [Official Android Compose performance skill](https://github.com/android/skills/tree/bf68e2d66a992a1e6aeb7e9263293cc23fcbf475/jetpack-compose/jetpack-compose-performance) was installed locally. For responsiveness, separate estimated route position from relative phone direction. Initial direction requires the person to face the first corridor. Check direction while standing at a known place before judging position accuracy.
+
+## Field acceptance
+
+Start still. Repeat the exact grip adjustment and sway that generated two steps. Log this phase separately from a counted walk. Walk 10 steps, turn, walk 10 more, name the final place, and save. Reverse the same route. On a separate safe trial, intentionally pass the turn, then return to the actual corner and explicitly confirm it before resuming. Record true and reported step totals, the physical turn direction, whether recovery appeared, and whether arrival guidance matched the actual place. Repeat with different phone placements before widening supported carry modes.
+
+## Fix and replay result
+
+The raw return walk contained brief 406–577 ms holes and a gap between groups of accepted footfalls near the turn. Navigation now integrates only measured gyro intervals. It keeps measured orientation across short holes and requires a confirmed footfall to deliver a new direction. The replay of the return through its first corner produced a left event of about 110 degrees at nine previously accepted steps. A regression feeds the same events into a tracker with the original 7.7 m return segment and verifies entry into the second corridor without an off-route flag. The measured angle is approximate.
+
+The detector now waits for three reasonably spaced peaks before releasing the initial batch. A pair of isolated movements produces zero counted steps. Continuous rhythmic shaking can still look like walking. The older paused-walk replay changed from 24 accepted steps to 18, with both right turns retained. Its physical total is unknown. Short walking bouts of only one or two steps can be lost after stopping. New debug traces include estimated vertical and horizontal acceleration and tilt rate to support labelled stationary/handling comparisons. Historical logs only retained scalar magnitude and yaw.
+
+The end-of-trail dialog captures the endpoint name and the map name separately. Guided navigation begins with relative heading along the selected first corridor, smooths small changes, animates step position updates and allows manual realignment. Users can confirm a recognised missed corner or scan a sign to replan. Independent walking and carry-mode testing remain open.
+
+## Follow-up on 0.9.8 classroom and step reports
+
+The user reported mixed overcounts and undercounts, and a delay after pause/resume. The latest captured session had 97 counted footfalls for a route with 64.4 m of recorded length at a 0.7 m stride setting. It ended with an overrun. Physical footfall totals were not supplied, so the difference cannot establish a measured counting error rate. This session and the map are private local diagnostics in tmp/latest-* and must stay out of Git.
+
+In 0.9.9, instructions group consecutive straight segments through classroom marks until a direction change, floor transition, or destination. The instruction banner, imminent-turn arrow and speech use the same boundary. Passing an intermediate classroom no longer triggers a fresh spoken instruction merely because its arc index changed. Forward and reverse regression coverage checks the full straight distance and actual turn.
+
+Fallback detection now samples acceleration on accelerometer callbacks with original timestamps. Previously, gyroscope callbacks repeatedly sampled the latest acceleration value, coupling distance detection to gyro event timing. Raw acceleration, candidate peaks and accepted step times are logged to distinguish sensor delivery, cadence rejection, and route-position decisions during the next labelled trial. Thresholds are unchanged. The three-peak startup confirmation still delays the first batch after resume and can omit one- or two-step bouts. Removing it would weaken rejection of isolated handling movements. A physical matched recording/navigation test remains necessary, including pauses and the user's original sway movement.
+
+Verification for 0.9.9: 98 core tests and 21 phone tests passed. Installed on the S24 Ultra. The saved water-filter-to-Research-Centre route displayed 'Walk 31 m, then turn left' at zero steps, correctly spanning the classroom marks. This was a UI check without physical walking. Field step accuracy remains pending.

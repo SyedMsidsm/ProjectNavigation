@@ -4,6 +4,55 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TrailWorkflowTest {
+    @Test fun aBranchPartwayAlongARetracedCampusCorridorReusesItsJunction() {
+        val r=TrailRecorder(1.0,"Start")
+        repeat(10){r.step()};r.mark("Classroom");r.turn(180.0)
+        repeat(8){r.step()};r.turn(90.0)
+        repeat(3){r.step()};r.mark("Office")
+        val graph=r.finish().reuseRetracedCorridors()
+        assertEquals(5.0,RoutePlanner(graph).plan("T1","T4",PlannerKind.SHORTEST)!!.totalLengthM,.001)
+        assertEquals(graph.edges,graph.reuseRetracedCorridors().edges)
+    }
+    @Test fun returnFromRoomSharesTheHallAndSkipsTheDetour() {
+        val r=TrailRecorder(.7,"Entrance")
+        repeat(6){r.step()}; r.turn(-90.0)
+        repeat(9){r.step()}; r.turn(-90.0)
+        repeat(2){r.step()}; r.mark("Bedroom"); r.turn(180.0)
+        repeat(4){r.step()}; r.mark("Washroom"); r.turn(-90.0)
+        repeat(5){r.step()}; r.mark("Kitchen")
+        val graph=r.finish().reuseRetracedCorridors()
+        assertEquals(3,graph.degree("T3"))
+        for(kind in listOf(PlannerKind.RISK,PlannerKind.SHORTEST)) {
+            val route=RoutePlanner(graph).plan("T1","T5",kind)!!
+            assertEquals(listOf("T1","T2","T3","T5"),route.nodes)
+            assertEquals(11.9,route.totalLengthM,.001)
+        }
+        assertEquals(graph.edges,graph.reuseRetracedCorridors().edges)
+        assertEquals("T5",DestinationSearch.semanticCatalog("I want to pee",graph.nodes.values.toList()).single().id)
+    }
+    @Test fun oppositeRoomsRemainSeparateAndRouteAlongTheSameCorridor() {
+        val recorder = TrailRecorder(1.0,"Entrance")
+        repeat(5) { recorder.step() }
+        recorder.markBeside("Lab",emptyList(),"left")
+        recorder.markBeside("Office",emptyList(),"right")
+        repeat(5) { recorder.step() }
+        val graph = recorder.finish()
+        val lab = graph.nodes.values.single { it.roomName=="Lab" }
+        val office = graph.nodes.values.single { it.roomName=="Office" }
+        assertEquals("left",lab.corridorSide)
+        assertEquals("right",office.corridorSide)
+        assertEquals(lab.xM,office.xM,0.0)
+        assertEquals(lab.yM,office.yM,0.0)
+        assertEquals(10.0,graph.edges.sumOf { it.lengthM },.001)
+        val route = RoutePlanner(graph).plan(lab.id,"T1")!!
+        val tracker = NavigationTracker(graph,route,1.0)
+        repeat(5) { tracker.step() }
+        assertTrue(tracker.snapshot().arrived)
+        assertNull(tracker.snapshot().offRouteReason)
+        assertEquals(5.0,route.totalLengthM,.001)
+        val opposite = NavigationTracker(graph,RoutePlanner(graph).plan(lab.id,office.id)!!)
+        assertTrue(opposite.snapshot().arrived)
+    }
     @Test fun confirmedReturnReusesTheEntranceCorridorThroughItsMarkedPlaces() {
         val r = TrailRecorder(.7,"Entrance")
         repeat(4){r.step()}; r.mark("Kola")

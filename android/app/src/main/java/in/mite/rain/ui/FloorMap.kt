@@ -13,6 +13,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -37,6 +42,12 @@ internal fun FloorMap(graph: Graph, route: Route?, startId: String, destinationI
                      distanceM: Double = 0.0, navigating: Boolean = false,
                      floorName: String = "Demo floor / Level 01", synthetic: Boolean = true,
                      selectedFloor: Int = graph.nodes[startId]?.floor ?: 0, headingDegrees: Double? = null) {
+    var zoom by remember(startId,destinationId,selectedFloor) { mutableFloatStateOf(1f) }
+    var pan by remember(startId,destinationId,selectedFloor) { mutableStateOf(Offset.Zero) }
+    val transform = rememberTransformableState { scale, delta, _ ->
+        zoom=(zoom*scale).coerceIn(1f,5f)
+        pan=if(zoom==1f) Offset.Zero else pan+delta
+    }
     Surface(color = PanelColor, shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -44,21 +55,21 @@ internal fun FloorMap(graph: Graph, route: Route?, startId: String, destinationI
                     Eyebrow(floorName)
                     Text(if(route == null && !synthetic) "Floor map" else "Your indoor route", style = MaterialTheme.typography.titleMedium)
                 }
-                Tag(if (synthetic) "Sample" else "Local map")
+                TextButton(onClick={zoom=if(zoom==1f) 2f else 1f;pan=Offset.Zero}) { Text(if(zoom==1f)"Zoom in" else "Fit map") }
             }
-            Canvas(Modifier.fillMaxWidth().height(if(navigating) 340.dp else 265.dp).padding(vertical = 20.dp).semantics {
+            Canvas(Modifier.fillMaxWidth().height(if(navigating) 340.dp else 265.dp).clipToBounds().transformable(transform,canPan={zoom>1f}).padding(vertical = 20.dp).semantics {
                 contentDescription = (if (synthetic) "Synthetic floor map. " else "Imported floor map. ") + (route?.nodes?.joinToString(" to ") { graph.nodes.getValue(it).displayName } ?: "No route selected.")
             }) {
                 val nodes = graph.nodes.values.filter { it.floor == selectedFloor }.ifEmpty { graph.nodes.values.toList() }
                 val minX = nodes.minOf { it.xM }; val maxX = nodes.maxOf { it.xM }
                 val minY = nodes.minOf { it.yM }; val maxY = nodes.maxOf { it.yM }
-                val scale = min((size.width - 66.dp.toPx()) / max(maxX - minX, 1.0),
-                    (size.height - 40.dp.toPx()) / max(maxY - minY, 1.0)).toFloat()
+                val scale = min((size.width - 160.dp.toPx()) / max(maxX - minX, 1.0),
+                    (size.height - 76.dp.toPx()) / max(maxY - minY, 1.0)).toFloat()
                 val xBase = (size.width - ((maxX - minX) * scale).toFloat()) / 2f
                 val yBase = (size.height - ((maxY - minY) * scale).toFloat()) / 2f
                 fun point(n: Node): Offset {
-                    val px = xBase + ((n.xM - minX) * scale).toFloat()
-                    val py = yBase + ((maxY - n.yM) * scale).toFloat()
+                    val px = center.x+(xBase + ((n.xM - minX) * scale).toFloat()-center.x)*zoom+pan.x
+                    val py = center.y+(yBase + ((maxY - n.yM) * scale).toFloat()-center.y)*zoom+pan.y
                     if (!navigating) return Offset(px,py)
                     val depth = (py / size.height).coerceIn(0f,1f)
                     return Offset(center.x + (px-center.x)*(.72f+.28f*depth),
@@ -79,12 +90,14 @@ internal fun FloorMap(graph: Graph, route: Route?, startId: String, destinationI
                     color = Muted.toArgb(); textSize = 10.dp.toPx(); textAlign = Paint.Align.CENTER
                     typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 }
-                nodes.forEach { n ->
+                val labelBoxes = mutableListOf<android.graphics.RectF>()
+                nodes.sortedBy { if(it.id==startId || it.id==destinationId) 0 else 1 }.forEach { n ->
                     val p = point(n)
+                    if(p.x !in 0f..size.width || p.y !in 0f..size.height) return@forEach
                     val endpoint = n.id == startId || n.id == destinationId
                     val onRoute = route?.nodes?.contains(n.id) == true
                     drawCircle(if (n.type == NodeType.STAIRS) Color(0xFFC89900) else if (endpoint) Ink else if (onRoute) Ink else Color(0xFFADBDB0),
-                        if (endpoint) 7.dp.toPx() else 3.5.dp.toPx(), p)
+                        if (endpoint) 5.dp.toPx() else 2.dp.toPx(), p)
                     if (endpoint) drawCircle(if (n.id == destinationId) Accent else PanelColor, 3.dp.toPx(), p)
                     if (n.roomName.isNotBlank() || endpoint) {
                         val short = if(n.roomName.isNotBlank()) n.displayName else when (n.type) {
@@ -97,9 +110,29 @@ internal fun FloorMap(graph: Graph, route: Route?, startId: String, destinationI
                                 ?: n.displayName
                         }
                         val label = if (short.length > 16) short.take(14) + "…" else short
-                        val topRow = n.yM >= (minY + maxY) / 2
-                        drawContext.canvas.nativeCanvas.drawText(label, p.x,
-                            p.y + if (topRow) -14.dp.toPx() else 22.dp.toPx(), labelPaint)
+                        if(navigating && nodes.size>12 && zoom<1.5f && !endpoint && !onRoute) return@forEach
+                        val bearing = n.notes.removePrefix("label_bearing=").toDoubleOrNull()
+                            ?: graph.edges.firstOrNull { it.toNode == n.id }?.bearingDeg?.plus(if(n.corridorSide=="left") -90 else 90)
+                        val sideAngle = Math.toRadians(bearing ?: 0.0)
+                        val direction = if(n.corridorSide.isNotEmpty()) Offset(kotlin.math.sin(sideAngle).toFloat(), -kotlin.math.cos(sideAngle).toFloat())
+                            else Offset(0f, if(n.yM >= (minY+maxY)/2) -1f else 1f)
+                        val width = labelPaint.measureText(label) + 14.dp.toPx()
+                        val height = 22.dp.toPx()
+                        val desired = p + Offset(direction.x*(width/2+18.dp.toPx()),direction.y*27.dp.toPx())
+                        fun boxAt(row: Int): android.graphics.RectF {
+                            val x = desired.x.coerceIn(width/2, size.width-width/2)
+                            val y = (desired.y + row*26.dp.toPx()).coerceIn(height/2, size.height-height/2)
+                            return android.graphics.RectF(x-width/2,y-height/2,x+width/2,y+height/2)
+                        }
+                        val box = (listOf(0,1,-1,2,-2)).map(::boxAt)
+                            .firstOrNull { candidate -> labelBoxes.none { android.graphics.RectF.intersects(it,candidate) } } ?: return@forEach
+                        labelBoxes += box
+                        val anchor = Offset(box.centerX(),box.centerY())
+                        drawLine(Muted.copy(alpha=.45f),p,anchor,1.dp.toPx())
+                        if(n.corridorSide.isNotBlank()) drawRoundRect(Color(0xFF34404E),Offset(box.left,box.top+3.dp.toPx()),androidx.compose.ui.geometry.Size(box.width(),box.height()),androidx.compose.ui.geometry.CornerRadius(7.dp.toPx()))
+                        drawRoundRect(PanelColor,Offset(box.left,box.top),androidx.compose.ui.geometry.Size(box.width(),box.height()),androidx.compose.ui.geometry.CornerRadius(7.dp.toPx()))
+                        drawContext.canvas.nativeCanvas.drawText(label, anchor.x,
+                            anchor.y-(labelPaint.ascent()+labelPaint.descent())/2, labelPaint)
                     } else if (n.type == NodeType.JUNCTION && route == null && synthetic) {
                         drawContext.canvas.nativeCanvas.drawText(n.id, p.x, p.y - 12.dp.toPx(), labelPaint)
                     }

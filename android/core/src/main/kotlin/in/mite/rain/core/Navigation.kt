@@ -38,7 +38,20 @@ data class NavigationState(val distanceWalkedM: Double, val remainingDistanceM: 
                            val currentNodeId: String, val currentArcIndex: Int, val offsetM: Double,
                            val arrived: Boolean, val offRouteReason: String?, val promptReason: String?,
                            val instruction: String, val driftM: Double,
-                           val confidence: Double = 0.9, val floorChangePending: Boolean = false)
+                           val confidence: Double = 0.9, val floorChangePending: Boolean = false,
+                           val returnSteps: Int? = null, val returning: Boolean = false)
+
+/** Intermediate room marks along the same corridor share one walking instruction. */
+fun Route.guidanceEndIndex(currentIndex: Int): Int {
+    var end = currentIndex
+    while (end < arcs.lastIndex && arcs[end].transition.isBlank() &&
+        arcs[end + 1].transition.isBlank() && transitions[end + 1].turnClass == TurnClass.STRAIGHT) end++
+    return end
+}
+
+fun Route.distanceToGuidanceEnd(state: NavigationState): Double =
+    if (arcs.isEmpty()) 0.0 else max(0.0,
+        (state.currentArcIndex..guidanceEndIndex(state.currentArcIndex)).sumOf { arcs[it].lengthM } - state.offsetM)
 
 /** Lightweight route-following PDR. It estimates progress, not an independently measured position.
  * At a planned turn of at least 60 degrees the tracker waits for matching relative-yaw
@@ -57,6 +70,12 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
     private var evidenceTurnIndex: Int? = null
     private var evidenceAngleDeg = 0.0
     private var offRoute: String? = null
+    private var returning = false
+    private fun canRetrace() = offRoute == "missed_turn" || offRoute == "overrun"
+    fun beginReturn(): NavigationState {
+        if (canRetrace()) returning = true
+        return snapshot()
+    }
     private var prompt: String? = null
     private var arrived = route.arcs.isEmpty()
     private val policy = PromptPolicy(settings, promptMode)
@@ -67,6 +86,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
         require(route.nodes.isNotEmpty() && route.nodes.all { it in graph.nodes })
         require(route.arcs.size == route.transitions.size && route.nodes.size == route.arcs.size + 1)
         require(route.arcs.indices.all { route.arcs[it].fromNode == route.nodes[it] && route.arcs[it].toNode == route.nodes[it + 1] })
+        if (route.arcs.firstOrNull()?.let { it.lengthM == 0.0 && it.transition.isBlank() } == true) progress()
         updatePrompt()
     }
 
@@ -74,6 +94,11 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
 
     fun advance(distanceM: Double): NavigationState {
         require(distanceM.isFinite() && distanceM >= 0)
+        if (canRetrace()) {
+            walked += distanceM
+            offset = if (returning) max(route.arcs[arcIndex].lengthM, offset-distanceM) else offset+distanceM
+            return snapshot()
+        }
         if (route.arcs.isEmpty() || offRoute != null || route.arcs[arcIndex].transition.isNotBlank()) return snapshot()
         walked += distanceM
         distanceSinceFix += distanceM
@@ -128,6 +153,7 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
         turnsSinceFix = 0
         confidence = fixConfidence
         offRoute = null
+        returning = false
         prompt = null
         acceptedTurnIndex = null
         evidenceTurnIndex = null
@@ -167,7 +193,8 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
         return NavigationState(walked, max(0.0, route.totalLengthM - along), node, arcIndex, offset, arrived,
             offRoute, prompt, instruction(), 0.05 * distanceSinceFix + 1.5 * turnsSinceFix,
             (confidence - .008 * distanceSinceFix - .04 * turnsSinceFix).coerceIn(.05, .95),
-            !arrived && route.arcs[arcIndex].transition.isNotBlank())
+            !arrived && route.arcs[arcIndex].transition.isNotBlank(),
+            if(canRetrace()) kotlin.math.ceil(((offset-route.arcs[arcIndex].lengthM)/stepLengthM-1e-7).coerceAtLeast(0.0)).toInt() else null, returning)
     }
 
     private fun progress() {
@@ -208,20 +235,28 @@ class NavigationTracker(private val graph: Graph, val route: Route, val stepLeng
     private fun flag(reason: String) { offRoute = reason; prompt = "off_route"; arrived = false }
 
     private fun instruction(): String {
+        if(canRetrace()) {
+            val target = if(arcIndex == route.arcs.lastIndex) "destination" else "corner"
+            return if(returning) "Retrace your steps to the $target and confirm when you recognise it."
+                else "You may have passed the $target. Stop and return along the same corridor."
+        }
         if (offRoute != null) return "Pause and scan a nearby room sign to confirm your location."
         if (arrived) return "Estimated arrival at ${graph.nodes.getValue(route.nodes.last()).displayName}. Confirm the room sign."
         val arc = route.arcs[arcIndex]
         if (arc.transition.isNotBlank()) return "Take the ${arc.transition} to floor ${graph.nodes.getValue(arc.toNode).floor}. Tap Change floor only after reaching it."
-        val remaining = max(0.0, arc.lengthM - offset).roundToInt()
-        val next = route.transitions.getOrNull(arcIndex + 1)
-        if (next == null) return "Walk $remaining m to ${graph.nodes.getValue(arc.toNode).displayName}."
+        val endIndex = route.guidanceEndIndex(arcIndex)
+        val end = route.arcs[endIndex]
+        val remaining = max(0.0, (arcIndex..endIndex).sumOf { route.arcs[it].lengthM } - offset).roundToInt()
+        val next = route.transitions.getOrNull(endIndex + 1)
+        if (next == null) return "Walk straight for $remaining m to ${graph.nodes.getValue(end.toNode).displayName}."
+        if (next.outgoingArc.transition.isNotBlank()) return "Walk $remaining m to the ${next.outgoingArc.transition}."
         val action = when (next.turnClass) {
             TurnClass.STRAIGHT -> "continue straight"
             TurnClass.SLIGHT -> if (next.angleDeg > 0) "bear right" else "bear left"
             TurnClass.TURN -> if (next.angleDeg > 0) "turn right" else "turn left"
             TurnClass.U_TURN -> "turn around"
         }
-        val landmark = graph.nodes.getValue(arc.toNode).roomName.takeIf { it.isNotBlank() }?.let { " at $it" }.orEmpty()
+        val landmark = graph.nodes.getValue(end.toNode).roomName.takeIf { it.isNotBlank() }?.let { " at $it" }.orEmpty()
         return if (remaining == 0) "${action.replaceFirstChar(Char::uppercaseChar)}$landmark."
         else "Walk $remaining m, then $action$landmark."
     }

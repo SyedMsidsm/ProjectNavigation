@@ -2,6 +2,47 @@ package `in`.mite.rain.core
 
 import kotlin.math.*
 
+/** A longer return from a dead end passes through the previous junction.
+ * Only reuse an exact same-floor retrace along a bidirectional recorded segment. */
+fun Graph.reuseRetracedCorridors(): Graph {
+    val links = edges.toMutableList()
+    var changed = false
+    for (i in links.indices) {
+        var leg = links[i]
+        if (!leg.bidirectional || leg.transition.isNotEmpty()) continue
+        while (leg.lengthM > 0.05) {
+            val start = nodes.getValue(leg.fromNode)
+            val end = nodes.getValue(leg.toNode)
+            val back = links.take(i).singleOrNull { prior ->
+                if (!prior.bidirectional || prior.transition.isNotEmpty() || prior.lengthM <= 0.05 ||
+                    abs(prior.lengthM-leg.lengthM) <= 0.05 || prior.toNode != start.id) false
+                else {
+                    val hall = nodes.getValue(prior.fromNode)
+                    val axis = Math.toRadians(leg.bearingDeg)
+                    abs(signedTurnDegrees(prior.bearingDeg,leg.bearingDeg)).let { abs(it-180.0) < 0.01 } &&
+                        hypot(start.xM + sin(axis)*prior.lengthM - hall.xM,
+                            start.yM + cos(axis)*prior.lengthM - hall.yM) < 0.05 &&
+                        hypot(start.xM + sin(axis)*leg.lengthM - end.xM,
+                            start.yM + cos(axis)*leg.lengthM - end.yM) < 0.05
+                }
+            } ?: break
+            if (back.lengthM > leg.lengthM) {
+                // The return stopped inside the original corridor, then branched.
+                // Only split at an unlabeled structural junction on this exact line.
+                if(end.type == NodeType.JUNCTION && end.roomName.isBlank()) {
+                    links[links.indexOf(back)] = back.copy(toNode=end.id,lengthM=back.lengthM-leg.lengthM)
+                    changed=true
+                }
+                break
+            }
+            leg = leg.copy(fromNode=back.fromNode,lengthM=leg.lengthM-back.lengthM)
+            links[i] = leg
+            changed = true
+        }
+    }
+    return if (changed) Graph(nodes.values,links) else this
+}
+
 /** Close a user-confirmed return. Follow the existing straight corridor outward
  * from the start to find the junction where the final return leg joined it. */
 fun Graph.closeRecordedReturn(startId: String, endId: String): Graph {

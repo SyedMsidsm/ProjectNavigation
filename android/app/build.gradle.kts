@@ -11,8 +11,8 @@ android {
         applicationId = "in.mite.rain"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.9.6-guided-setup"
+        versionCode = 22
+        versionName = "0.10.1-exhibition"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

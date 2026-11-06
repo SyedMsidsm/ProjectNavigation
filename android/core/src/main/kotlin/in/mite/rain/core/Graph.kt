@@ -68,7 +68,12 @@ class Graph(nodeList: Collection<Node>, val edges: List<Edge>) {
             if (e.id.isBlank()) errors += "Edge IDs cannot be blank."
             if (e.fromNode !in nodes || e.toNode !in nodes) errors += "Edge ${e.id}: unknown endpoint."
             if (e.fromNode == e.toNode) errors += "Edge ${e.id}: self-loops are not walkable segments."
-            if (!e.lengthM.isFinite() || e.lengthM < 0 || (e.lengthM == 0.0 && e.transition.isBlank())) errors += "Edge ${e.id}: walking length must be finite and positive."
+            val a = nodes[e.fromNode]
+            val b = nodes[e.toNode]
+            val placeAccess = e.notes == "place_access" && a != null && b != null &&
+                a.floor == b.floor && a.xM == b.xM && a.yM == b.yM &&
+                (a.type == NodeType.DOOR || b.type == NodeType.DOOR)
+            if (!e.lengthM.isFinite() || e.lengthM < 0 || (e.lengthM == 0.0 && e.transition.isBlank() && !placeAccess)) errors += "Edge ${e.id}: walking length must be finite and positive."
             if (!e.bearingDeg.isFinite()) errors += "Edge ${e.id}: bearing must be finite."
             if (e.transition !in setOf("", "stairs", "lift", "escalator")) errors += "Unknown floor transition."
             if (e.fromNode in nodes && e.toNode in nodes && (nodes.getValue(e.fromNode).floor != nodes.getValue(e.toNode).floor) != e.transition.isNotBlank()) errors += "Floor transitions must connect different floors."

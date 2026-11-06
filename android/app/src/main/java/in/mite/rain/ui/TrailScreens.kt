@@ -43,7 +43,7 @@ internal fun TrailHome(model:RainViewModel, onRecord:()->Unit, onNavigate:()->Un
         
         HomeAction("↗","Record a trail","Walk, mark places and save a route.",onRecord)
         HomeAction("→","Navigate","Choose your current place and destination.",onNavigate)
-        HomeAction("⌖","View floor map",model.currentFloor?.name ?: "Current map",onMap)
+        HomeAction("⌖","View floor map",model.currentFloor?.takeUnless { it.synthetic }?.name ?: "Choose or record a map",onMap)
         HomeAction("≡","Saved maps","Choose, rename or delete your recordings.",onLibrary)
         HorizontalDivider()
         TextButton(onClick={extras=!extras}) { Text(if(extras) "Close settings" else "Settings") }
@@ -78,8 +78,13 @@ internal fun TrailHome(model:RainViewModel, onRecord:()->Unit, onNavigate:()->Un
     var startFloor by rememberSaveable{mutableStateOf("0")}
     var name by rememberSaveable{mutableStateOf("")}
     var aliases by rememberSaveable{mutableStateOf("")}
+    var placeSide by rememberSaveable { mutableStateOf("") }
+    var scanMark by rememberSaveable { mutableStateOf(false) }
+    var signText by rememberSaveable { mutableStateOf("") }
+    if(scanMark) SignOffer(onUse={name=it;signText=it;scanMark=false},onClose={scanMark=false})
     var targetFloor by rememberSaveable{mutableStateOf("1")}
     var method by rememberSaveable{mutableStateOf("stairs")}
+    var endpoint by rememberSaveable { mutableStateOf("") }
     var backAtStart by rememberSaveable { mutableStateOf(false) }
     var mapName by rememberSaveable{mutableStateOf("")}
     var mode by rememberSaveable{mutableStateOf("")}
@@ -115,25 +120,33 @@ internal fun TrailHome(model:RainViewModel, onRecord:()->Unit, onNavigate:()->Un
             model.trailPreview?.let{g->FloorMap(g,null,g.nodes.keys.first(),g.nodes.keys.last(),floorName="Recorded trail · floor ${model.trailFloor}",synthetic=false,selectedFloor=model.trailFloor)}
             if(mode.isEmpty() && model.recordingPaused) Button(onClick={mode="";model.resumeRecording()},enabled=!model.mapBusy,modifier=Modifier.fillMaxWidth()){Text("Continue walking")}
             else if(mode.isEmpty()) OutlinedButton(onClick=model::pauseRecording,modifier=Modifier.fillMaxWidth()){Text("Pause recording")}
-            if(mode.isEmpty()) Button(onClick={model.pauseRecording();name="";aliases="";mode="mark"},modifier=Modifier.fillMaxWidth()){Text("Mark this place")}
+            if(mode.isEmpty()) Button(onClick={model.pauseRecording();placeSide=model.suggestedPlaceSide;name="";aliases="";signText="";mode="mark"},modifier=Modifier.fillMaxWidth()){Text("Mark this place")}
             if(mode.isEmpty()) TextButton(onClick={advanced=!advanced}) { Text(if(advanced) "Hide more options" else "More recording options") }
-            if(advanced && mode.isEmpty()) {
+            if(mode.isEmpty() && model.trailSteps>0) {
                 OutlinedButton(onClick={model.pauseRecording();mode="join"},modifier=Modifier.fillMaxWidth()){Text("Connect to an existing place")}
+            }
+            if(advanced && mode.isEmpty()) {
                 OutlinedButton(onClick={model.pauseRecording();targetFloor=(model.trailFloor+1).toString();mode="floor"},modifier=Modifier.fillMaxWidth()){Text("Change floor")}
             }
-            if(mode.isEmpty()) OutlinedButton(onClick={model.pauseRecording();mode="save";backAtStart=false},modifier=Modifier.fillMaxWidth()){Text("Stop and save")}
+            if(mode.isEmpty()) OutlinedButton(onClick={model.pauseRecording();mode="save";backAtStart=false;endpoint=model.recordedEndpointName},modifier=Modifier.fillMaxWidth()){Text("Stop and save")}
             if(mode.isNotEmpty()) TextButton(onClick={mode=""}) {Text("Back to recording")}
             when(mode){
                 "mark"->{
-                    Text("Stay still while naming this place. After saving, tap Continue walking without changing your position or heading.")
+                    Text("Choose the room’s side relative to your walking direction. Face along the corridor again before continuing.")
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        listOf("left" to "Left", "" to "Ahead", "right" to "Right").forEach { (side, label) ->
+                            FilterChip(selected=placeSide==side,onClick={placeSide=side},label={Text(label)})
+                        }
+                    }
                     OutlinedTextField(name,{name=it},label={Text("Place name")},singleLine=true,modifier=Modifier.fillMaxWidth())
+                    TextButton(onClick={scanMark=true}) { Text("Read a room sign") }
                     if(advanced) OutlinedTextField(aliases,{aliases=it},label={Text("Aliases, separated by commas")},singleLine=true,modifier=Modifier.fillMaxWidth())
-                    Button(onClick={model.markTrail(name,aliases);mode=""},enabled=name.isNotBlank()){Text("Save place")}
+                    Button(onClick={model.markTrail(name,aliases,placeSide,if(signText.isBlank()) "" else name.trim());mode=""},enabled=name.isNotBlank()){Text("Save place")}
                 }
                 "join"->{
                     Text("Only join a place when you are physically back there. Distances remain the recorded walking estimates.")
-                    model.trailPreview?.nodes?.values?.filter{it.roomName.isNotBlank() && it.floor==model.trailFloor}?.forEach{n->
-                        OutlinedButton(onClick={model.joinTrail(n.id)}){Text(if(n.id=="T1")"Finish at start · ${n.displayName}" else "Join ${n.displayName}")}
+                    model.trailPreview?.nodes?.values?.filter{it.id!="TIP" && it.corridorSide.isBlank() && it.floor==model.trailFloor}?.forEach{n->
+                        OutlinedButton(onClick={model.joinTrail(n.id);mode=""}){Text(if(n.id=="T1")"Return to start · ${n.displayName}" else "Join ${n.roomName.ifBlank { "junction ${n.id}" }}")}
                     }
                 }
                 "floor"->{
@@ -143,9 +156,17 @@ internal fun TrailHome(model:RainViewModel, onRecord:()->Unit, onNavigate:()->Un
                     Button(onClick={targetFloor.toIntOrNull()?.let{model.changeTrailFloor(it,method)}},enabled=targetFloor.toIntOrNull()!=null){Text("Confirm new floor")}
                 }
                 "save"->{
-                    OutlinedTextField(mapName,{mapName=it},label={Text("Map name")},singleLine=true,modifier=Modifier.fillMaxWidth())
-                    Row(verticalAlignment=Alignment.CenterVertically) { Checkbox(checked=backAtStart,onCheckedChange={backAtStart=it});Text("Back at the starting place") }
-                    Button(onClick={model.saveRecording(mapName,backAtStart)},enabled=mapName.isNotBlank() && !model.mapBusy){Text(if(model.mapBusy)"Saving…" else "Save recorded map")}
+                    AlertDialog(onDismissRequest={if(!model.mapBusy)mode=""},title={Text("Save your trail")},text={
+                        Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                            if (!backAtStart) OutlinedTextField(endpoint,{endpoint=it.take(80)},label={Text("Name the final place")},singleLine=true)
+                            Row(verticalAlignment=Alignment.CenterVertically){Checkbox(backAtStart,{backAtStart=it});Text("Back at the starting place")}
+                            OutlinedTextField(mapName,{mapName=it.take(80)},label={Text("Map name")},singleLine=true)
+                            model.trailMessage?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
+                        }
+                    },confirmButton={TextButton(enabled=mapName.isNotBlank() && (backAtStart || endpoint.isNotBlank()) && !model.mapBusy,
+                        onClick={model.saveRecording(mapName,backAtStart,endpoint)}){Text(if(model.mapBusy)"Saving…" else "Save map")}},
+                        dismissButton={TextButton(enabled=!model.mapBusy,onClick={mode=""}){Text("Keep recording")}})
+
                 }
             }
         }

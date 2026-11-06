@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import `in`.mite.rain.core.DestinationSearch
 import `in`.mite.rain.core.Node
+import `in`.mite.rain.core.PlannerKind
+import kotlin.math.roundToInt
 import `in`.mite.rain.platform.OfflineDestinationSpeech
 import `in`.mite.rain.platform.RoomScanner
 import kotlinx.coroutines.CancellationException
@@ -45,6 +47,7 @@ internal fun WalkSetup(model:RainViewModel, onMaps:()->Unit, onStart:()->Unit, o
     var scan by rememberSaveable { mutableStateOf(true) }
     var scanned by rememberSaveable { mutableStateOf("") }
     var from by rememberSaveable { mutableStateOf("") }
+    var confirmId by rememberSaveable { mutableStateOf("") }
     fun back() { if(destination) destination=false else onBack() }
     BackHandler { back() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -54,10 +57,11 @@ internal fun WalkSetup(model:RainViewModel, onMaps:()->Unit, onStart:()->Unit, o
         }
         Text(if(destination)"Where do you want to go?" else "Where are you now?",style=MaterialTheme.typography.headlineMedium)
         if(destination) Text("From ${graph.nodes[from]?.displayName.orEmpty()}",color=Muted)
+        if(destination) Text("Face down the first corridor before starting guidance.",style=MaterialTheme.typography.bodySmall,color=Muted)
         key(graph,destination,scanned) {
             PlaceQuestion(if(destination) places.filter { it.id!=from } else places,
                 if(destination) "" else scanned, destination,model) { node ->
-                if(destination) { model.selectDestination(node.id); onStart() }
+                if(destination) { model.selectDestination(node.id); model.selectKind(PlannerKind.SHORTEST); confirmId=node.id }
                 else { from=node.id; model.selectStart(node.id); destination=true }
             }
         }
@@ -65,6 +69,24 @@ internal fun WalkSetup(model:RainViewModel, onMaps:()->Unit, onStart:()->Unit, o
         if(!destination) TextButton(onClick={scan=true}){Text("Scan a room sign")}
     }
     if(scan) SignOffer(onUse={scanned=it;scan=false},onClose={scan=false})
+    graph.nodes[confirmId]?.let { place ->
+        val shortest=model.routes[PlannerKind.SHORTEST]
+        val risk=model.routes[PlannerKind.RISK]
+        AlertDialog(onDismissRequest={confirmId=""},title={Text("Navigate to ${place.displayName}?")},
+            text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Text("From ${graph.nodes[from]?.displayName.orEmpty()}")
+                for ((kind,label) in listOf(PlannerKind.SHORTEST to "Shortest",PlannerKind.RISK to "Risk-aware")) {
+                    model.routes[kind]?.let { route ->
+                        FilterChip(selected=model.kind==kind,onClick={model.selectKind(kind)},label={
+                            Text("$label · ${route.totalLengthM.roundToInt()} m · ${route.transitions.count { kotlin.math.abs(it.angleDeg)>=45 }} turns")
+                        })
+                    }
+                }
+                Text(if(shortest==null) "No connected route was found." else if(shortest.nodes==risk?.nodes)
+                    "Both options follow the same path." else "Risk-aware weighs distance, junctions, turns and available signs.")
+            }},confirmButton={TextButton(enabled=model.routes[model.kind]!=null,onClick={confirmId="";onStart()}){Text("Start navigation")}},
+            dismissButton={TextButton(onClick={confirmId=""}){Text("Change destination")}})
+    }
 }
 
 @Composable
@@ -90,19 +112,26 @@ private fun PlaceQuestion(places:List<Node>, initial:String, destination:Boolean
         TextButton(onClick={if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)listen() else permission.launch(Manifest.permission.RECORD_AUDIO)}){Text("Speak")}
         TextButton(onClick={expanded=!expanded}){Text(if(expanded)"Hide saved places" else "Choose a saved place ▾")}
     }
-    val shown=when { expanded -> places; selected.isNotBlank() -> emptyList(); suggestions.isNotEmpty() -> suggestions; else -> matches.take(8) }
+    if(expanded) AlertDialog(onDismissRequest={expanded=false},title={Text(if(destination)"Choose destination" else "Choose current place")},
+        text={Column(Modifier.verticalScroll(rememberScrollState())) {
+            suggestions.ifEmpty { places }.forEach { node -> TextButton(onClick={edit(node.roomName);selected=node.id;expanded=false;onPick(node)}){Text("${node.displayName} · floor ${node.floor}")} }
+        }},confirmButton={TextButton(onClick={expanded=false}){Text("Close")}})
+    val shown=if(selected.isBlank() && !expanded) matches.take(8) else emptyList()
     shown.forEach { node -> TextButton(onClick={edit(node.roomName);selected=node.id;expanded=false}){Text("${node.displayName} · floor ${node.floor}")} }
     if(status.isNotBlank()) Text(status,color=Muted)
     val choice=places.find { it.id==selected } ?: matches.singleOrNull()
     Button(enabled=query.isNotBlank() && !busy,modifier=Modifier.fillMaxWidth(),onClick={
         if(choice!=null) onPick(choice)
-        else if(matches.size>1){expanded=true;status="Choose the matching place."}
+        else if(matches.size>1){suggestions=matches;expanded=true}
         else if(destination) {
             val token=generation
             busy=true
             scope.launch {
-                try { val answer=model.describePlace(query,places)
-                    if(token==generation){suggestions=listOfNotNull(answer);status=if(answer==null)"No match. Choose a saved place." else "Confirm the suggested place."}
+                try { val catalog=DestinationSearch.semanticCatalog(query,places)
+                    val answers=if(catalog !== places) catalog else listOfNotNull(model.describePlace(query,places))
+                    if(token==generation){if(answers.size==1) onPick(answers.single()) else {
+                        suggestions=answers;expanded=true;status=if(answers.isEmpty()) "No match. Choose a saved place." else ""
+                    }}
                 } catch(e:CancellationException){throw e}
                 catch(e:Exception){if(token==generation)status="Search unavailable. Choose a saved place."}
                 finally { if(token==generation)busy=false }

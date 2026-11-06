@@ -41,6 +41,12 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     var trailMessage by mutableStateOf<String?>(null); private set
     var lastSavedTrailId by mutableStateOf<String?>(null); private set
     private var recorder: TrailRecorder? = null
+    private var recordingLookAngle = 0.0
+    val suggestedPlaceSide get() = when {
+        signedTurnDegrees(0.0, recordingLookAngle) in -135.0..-40.0 -> "left"
+        signedTurnDegrees(0.0, recordingLookAngle) in 40.0..135.0 -> "right"
+        else -> ""
+    }
     private var trailTrace: java.io.File? = null
     fun prepareRecording() { if (!recording) { lastSavedTrailId = null; trailMessage = null } }
     fun refreshTrails() { viewModelScope.launch { savedTrails = withContext(Dispatchers.IO) { trailLibrary.list() } } }
@@ -48,6 +54,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         if (navigating || mapBusy || assistantBusy || recording) return
         try {
             lastSavedTrailId = null
+            recordingLookAngle = 0.0
             recorder = TrailRecorder(stepLength,start,floor); recording = true; recordingPaused = false
             trailMessage = "Hold the phone in your hand. Stop walking while naming a place."
             trailTrace = java.io.File(getApplication<Application>().filesDir,"last-recording-trace.jsonl").apply { writeText("") }
@@ -60,7 +67,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshRecording() { recorder?.let { trailPreview=it.preview(); trailSteps=it.steps; trailFloor=it.floor } }
     private fun recordStep() { if(recording && !recordingPaused) { recorder?.step(); traceTrail("step"); refreshRecording() } }
     private fun recordTurn(angle: Double) { if(recording && !recordingPaused) {
-        try { recorder?.turn(angle); traceTrail("turn",angle); refreshRecording() }
+        try { recorder?.turn(angle); recordingLookAngle -= angle; traceTrail("turn",angle); refreshRecording() }
         catch(e:Exception) { recordingPaused=true; trailMessage=e.message; updateSensors() }
     } }
     var accelerometerSteps by mutableStateOf(application.getSharedPreferences("rain_motion", android.content.Context.MODE_PRIVATE).getBoolean("accelerometer", false)); private set
@@ -72,8 +79,11 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         trailMessage = "Step source changed. Hold the phone steady and tap Continue walking. Motion detection is an estimate and needs a walking check."
     }
     fun pauseRecording() { if(recording) { motion.flushPendingSteps(); recordingPaused=true; updateSensors() } }
-    fun resumeRecording() { if(recording && foreground) { recordingPaused=false; trailMessage="Recording resumed. Keep the same position and heading."; updateSensors() } }
-    fun markTrail(name: String, aliases: String) = editRecording { it.mark(name,aliases.split(',').map(String::trim).filter(String::isNotEmpty)) }
+    fun resumeRecording() { if(recording && foreground) { recordingLookAngle=0.0; recordingPaused=false; trailMessage="Recording resumed. Keep the same position and heading."; updateSensors() } }
+    fun markTrail(name: String, aliases: String, side: String = "", signText: String = "") = editRecording {
+        val labels = aliases.split(',').map(String::trim).filter(String::isNotEmpty)
+        if(side.isEmpty()) it.mark(name,labels,signText) else it.markBeside(name,labels,side,signText)
+    }
     fun joinTrail(id: String) = editRecording { it.join(id) }
     fun changeTrailFloor(floor: Int, method: String) = editRecording { it.changeFloor(floor,method) }
     private fun editRecording(action: (TrailRecorder)->Unit) {
@@ -81,10 +91,13 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         catch(e:Exception) { trailMessage=e.message }
     }
     fun discardRecording() { recorder=null; recording=false; recordingPaused=false; trailPreview=null; updateSensors() }
-    fun saveRecording(name:String, backAtStart:Boolean = false) {
+    val recordedEndpointName get() = recorder?.endpointName.orEmpty()
+    fun saveRecording(name:String, backAtStart:Boolean = false, endpoint:String = "") {
         val active=recorder ?: return
         if(mapBusy) return
         val result=try {
+            require(active.steps > 0) { "Walk to another place before saving." }
+            if (!backAtStart && endpoint.isNotBlank() && endpoint.trim() != active.endpointName) active.mark(endpoint)
             val graph = active.finish()
             if (backAtStart) graph.closeRecordedReturn("T1", active.currentPlaceId) else graph
         } catch(e:Exception) { trailMessage=e.message; return }
@@ -297,8 +310,9 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         sessionStartedMs = System.currentTimeMillis()
         walkedBeforeReplan = 0.0; steps = 0; status = null; promptStartedMs = null
         activeRoute = route
-        headingAligned = false
+        headingAligned = liveMotion
         displayHeading = route.arcs.first().bearingDeg
+        rawHeading = displayHeading
         tracker = NavigationTracker(graph!!, route, stepLength, settings(), promptMode)
         navigation = null
         logger.start(metadata() + mapOf(
@@ -326,7 +340,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         if (!navigating || arToken != null || interactionPaused || showScanner || recognition != null || simulated == liveMotion) return
         val previous = navigation
         if(previous?.floorChangePending == true) return
-        if (previous?.offRouteReason != null) return
+        if (previous?.offRouteReason != null && previous.returnSteps == null) return
         val next = tracker?.step() ?: return
         steps++
         updateNavigation(next)
@@ -335,6 +349,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
             "input_source" to if (simulated) "simulated_steps" else "phone_sensor"))
     }
 
+    fun beginReturn() { tracker?.beginReturn()?.let(::updateNavigation) }
     fun turn(angle: Double, simulated: Boolean = false) {
         if (!navigating || arToken != null || interactionPaused || showScanner || recognition != null || simulated == liveMotion) return
         event("turn_detected", mapOf("angle_deg" to angle, "at_node_estimate" to navigation?.currentNodeId,
@@ -346,18 +361,18 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         val previous = navigation
         navigation = next
         val route = activeRoute
-        val arc = route?.arcs?.getOrNull(next.currentArcIndex)
-        val turn = route?.transitions?.getOrNull(next.currentArcIndex + 1)
-        val approaching = arc != null && turn != null && kotlin.math.abs(turn.angleDeg) >= 45 &&
-            arc.lengthM - next.offsetM <= 3 && previous?.currentArcIndex == next.currentArcIndex &&
-            arc.lengthM - previous.offsetM > 3 && next.offRouteReason == null && !next.arrived
+        val endIndex = route?.guidanceEndIndex(next.currentArcIndex)
+        val turn = endIndex?.let { route?.transitions?.getOrNull(it + 1) }
+        val approaching = route != null && previous != null && turn != null && kotlin.math.abs(turn.angleDeg) >= 45 &&
+            route.distanceToGuidanceEnd(next) <= 3 && route.guidanceEndIndex(previous.currentArcIndex) == endIndex &&
+            route.distanceToGuidanceEnd(previous) > 3 && next.offRouteReason == null && !next.arrived
         val turnCue = if (approaching) when {
             kotlin.math.abs(turn!!.angleDeg) > 135 -> "Just ahead, turn back."
             turn.angleDeg > 0 -> "Just ahead, turn right."
             else -> "Just ahead, turn left."
         } else null
-        val cueChanged = approaching || previous == null || previous.currentArcIndex != next.currentArcIndex ||
-            previous.arrived != next.arrived || previous.offRouteReason != next.offRouteReason || previous.promptReason != next.promptReason
+        val cueChanged = approaching || previous == null || route?.guidanceEndIndex(previous.currentArcIndex) != endIndex ||
+            previous.arrived != next.arrived || previous.offRouteReason != next.offRouteReason || previous.promptReason != next.promptReason || previous.returning != next.returning
         if (cueChanged && foreground && !interactionPaused && !showScanner && recognition == null)
             feedback.announce(turnCue ?: if (next.promptReason != null && next.offRouteReason == null) "Check a nearby room sign. ${next.instruction}" else next.instruction,
                 next.offRouteReason != null || next.promptReason != null)
@@ -380,7 +395,7 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
         if (!value) {
             headingAligned = false
             feedback.pause()
-            if(navigating && liveMotion && arToken == null && !showScanner && !interactionPaused)
+            if(navigating && navigation?.offRouteReason == null && liveMotion && arToken == null && !showScanner && !interactionPaused)
                 tracker?.requirePositionCheck("navigation_interrupted")?.let(::updateNavigation)
             if(recording){motion.flushPendingSteps();recordingPaused=true;trailMessage="Recording paused while the app was away. Return to the same place and heading before resuming."}
             if (calibrationRecording) {
@@ -393,17 +408,18 @@ class RainViewModel(application: Application) : AndroidViewModel(application) {
     fun pauseForInteraction(value: Boolean) { interactionPaused = value; if (value) { headingAligned = false; feedback.pause() }; updateSensors() }
     private fun updateSensors() {
         if(recording) {
-            if(foreground && !recordingPaused) motion.start(::recordStep, ::recordTurn, recordingTrail = true) else motion.stop()
+            if(foreground && !recordingPaused) motion.start(::recordStep, ::recordTurn,
+                onHeadingDelta = { recordingLookAngle += it }, recordingTrail = true) else motion.stop()
             sensorStatus=motion.status;return
         }
         if (foreground && calibrationRecording) return
         if (foreground && navigating && liveMotion && navigation?.floorChangePending != true && arToken == null && !interactionPaused && !showScanner && recognition == null) {
-            motion.start(onStep = { step() }, onTurn = { turn(it) },
+            motion.start(navigating = true, onStep = { step() }, onTurn = { turn(it) },
                 onHeadingDelta = { delta ->
                     if (headingAligned) {
                         rawHeading += delta
                         val difference = rawHeading - displayHeading
-                        if (kotlin.math.abs(difference) > 1.5) displayHeading += difference * .28
+                        if (kotlin.math.abs(difference) > .45) displayHeading += difference * .35
                     }
                 })
         } else motion.stop()

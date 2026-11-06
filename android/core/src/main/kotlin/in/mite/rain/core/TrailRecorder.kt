@@ -9,6 +9,7 @@ class TrailRecorder(val stepLengthM: Double, startName: String, startFloor: Int 
     private var last = nodes.first()
     val currentPlaceId get() = last.id
     private var segmentSteps = 0
+    val endpointName get() = if(segmentSteps == 0) last.roomName else ""
     var steps = 0; private set
     var heading = 0.0; private set
     var floor = startFloor; private set
@@ -21,15 +22,31 @@ class TrailRecorder(val stepLengthM: Double, startName: String, startFloor: Int 
         flush()
         heading = normaliseBearing(heading + (angle / 90.0).roundToInt() * 90.0)
     }
-    fun mark(name: String, aliases: List<String> = emptyList()) {
+    fun mark(name: String, aliases: List<String> = emptyList(), signText: String = "") {
         val cleaned = clean(name)
         val cleanedAliases = aliases.map(::clean).distinct()
         // Validate before flushing: a rejected label must not consume the segment
         // needed by Join a place or introduce a spurious corner.
         require(nodes.none { (segmentSteps > 0 || it.id != last.id) && it.floor == floor && it.roomName.equals(cleaned, true) }) { "That place already exists on this floor. Use Join a place to reconnect." }
         flush()
-        last = last.copy(roomName = cleaned, aliases = cleanedAliases)
+        last = last.copy(roomName = cleaned, aliases = cleanedAliases, signText=signText.ifBlank { last.signText },
+            signCondition=if(signText.isBlank()) last.signCondition else SignCondition.PRINTED_CLEAR)
         nodes[nodes.indexOfFirst { it.id == last.id }] = last
+    }
+    fun markBeside(name: String, aliases: List<String>, side: String, signText: String = "") {
+        require(side in setOf("left", "right"))
+        val label = clean(name)
+        val labels = aliases.map(::clean).distinct()
+        require(nodes.none { it.floor == floor && it.roomName.equals(label, true) }) { "That place already exists on this floor." }
+        require(nodes.size < 299) { "Save this recording before adding more places." }
+        flush()
+        val place = Node("T${nodes.size + 1}", NodeType.DOOR, label, aliases = labels,
+            xM = x, yM = y, floor = floor, corridorSide = side, signText=signText,
+            signCondition=if(signText.isBlank()) SignCondition.MISSING else SignCondition.PRINTED_CLEAR,
+            notes = "label_bearing=${normaliseBearing(heading + if (side == "left") -90.0 else 90.0)}")
+        nodes += place
+        // A room mark identifies the corridor position beside its door.
+        edges += Edge("R${edges.size + 1}", last.id, place.id, 0.0, heading, notes = "place_access")
     }
     fun changeFloor(target: Int, method: String) {
         require(target != floor && target in -20..100) { "Choose a different floor." }
@@ -163,11 +180,13 @@ object DestinationSearch {
         val words = normal(request).split(" ").toSet()
         val washing = words.any { it in setOf("wash","washing","rinse") } &&
             words.any { it in setOf("face","hand","hands") }
-        if (!washing) return places
+        val restroom = words.any { it in setOf("pee","peeing","urinate","urinal","poop","toilet","loo","restroom","bathroom","washroom") }
+        if (!washing && !restroom) return places
         return places.filter { node -> node.type == NodeType.WASHROOM ||
             (listOf(node.roomName) + node.aliases).any { label ->
-                normal(label).replace(" ", "") in setOf("washroom","bathroom","restroom","toilet","washbasin","sink") ||
-                    normal(label).split(" ").any { it in setOf("washroom","bathroom","restroom","toilet","sink") }
+                val categories = if(restroom) setOf("washroom","bathroom","restroom","toilet","toilets","wc","loo","urinal")
+                    else setOf("washroom","bathroom","restroom","toilet","washbasin","sink")
+                normal(label).replace(" ", "") in categories || normal(label).split(" ").any { it in categories }
             }
         }
     }

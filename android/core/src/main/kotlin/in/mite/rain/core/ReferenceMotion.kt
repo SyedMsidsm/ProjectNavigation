@@ -51,6 +51,7 @@ class ReferenceTurnPipeline(private val confirmationSteps: Int = 2) {
     private var lastMotion: Long? = null
     private var settleStart: Long? = null
     private var angle = 0.0
+    private var rotationTravel = 0.0
     private var candidateAt: Long? = null
     private var net = 0.0
     private var confirmingSteps = 0
@@ -61,13 +62,21 @@ class ReferenceTurnPipeline(private val confirmationSteps: Int = 2) {
         if (t < 0 || !rate.isFinite() || (lastMotion != null && t <= lastMotion!!)) return emptyList()
         val previous = lastMotion; lastMotion = t
         if (previous == null) return emptyList()
-        if (t - previous > 200) { angle = 0.0; settleStart = null; return emptyList() }
-        if (abs(rate) > 15) { angle += rate * (t - previous) / 1000.0; settleStart = null }
+        if (t - previous > 200) { val released = reset(); lastMotion = t; return released }
+        if (abs(rate) > 15) {
+            val delta = rate * (t - previous) / 1000.0
+            angle += delta
+            rotationTravel += abs(delta)
+            settleStart = null
+        }
         else {
             if (settleStart == null) settleStart = t
             if (t - settleStart!! >= 300) {
-                val completed = angle; angle = 0.0; settleStart = null
-                if (abs(completed) >= 60) return candidate(completed, t)
+                val completed = angle
+                // Reject strongly reversing sway while retaining measured corners with hand swing.
+                val coherentTurn = abs(completed) >= rotationTravel * .40
+                angle = 0.0; rotationTravel = 0.0; settleStart = null
+                if (coherentTurn && abs(completed) >= 60) return candidate(completed, t)
             }
         }
         return emptyList()
@@ -93,6 +102,7 @@ class ReferenceTurnPipeline(private val confirmationSteps: Int = 2) {
     }
     fun step(t: Long): List<WalkEvent> {
         val candidate = candidateAt ?: return listOf(WalkEvent.Step)
+        if (t < candidate) return listOf(WalkEvent.Step)
         held++
         if (t - candidate > 8000) { drop(); return release() }
         confirmingSteps++
@@ -103,27 +113,63 @@ class ReferenceTurnPipeline(private val confirmationSteps: Int = 2) {
         return (if (accepted) listOf(WalkEvent.Turn(completed)) else emptyList()) + release()
     }
     fun reset(): List<WalkEvent> {
-        lastMotion = null; settleStart = null; angle = 0.0; drop()
+        lastMotion = null; settleStart = null; angle = 0.0; rotationTravel = 0.0; drop()
         return release()
     }
     private fun drop() { candidateAt = null; net = 0.0; confirmingSteps = 0; burst = false }
     private fun release(): List<WalkEvent> = List(held) { WalkEvent.Step }.also { held = 0 }
 }
 
-/** Keep the first footfall pending until a second peak establishes walking cadence. */
+/** Confirm three regularly spaced peaks, then release the initial footfalls together. */
 class WalkingCadence {
     private var previous: Long? = null
+    private var first: Long = 0
     private var walking = false
     fun peak(t: Long): List<Long> {
         val last = previous
         previous = t
-        val consistent = last != null && t - last in 300..1200
-        val accepted = when {
-            !consistent -> emptyList()
-            walking -> listOf(t)
-            else -> listOf(checkNotNull(last), t)
+        if (last == null || t-last !in 300..1200) {
+            first = t
+            walking = false
+            return emptyList()
         }
-        walking = consistent
-        return accepted
+        if (walking) return listOf(t)
+        if (first == last) return emptyList()
+        if (kotlin.math.abs((t-last)-(last-first)) > maxOf(180L,(last-first)/2)) {
+            first = last
+            return emptyList()
+        }
+        walking = true
+        return listOf(first,last,t)
+    }
+}
+
+/** Walking navigation needs the corner on a footfall even if hand sway prevents
+ * 300 ms of stationary gyro samples. Keep a short relative-yaw history. */
+class WalkingTurnWindow {
+    private data class Sample(val t: Long, val yaw: Double)
+    private val history = java.util.ArrayDeque<Sample>()
+    private var yaw = 0.0
+    private var previous = -1L
+    private var anchor = 0.0
+    private var lastFootfall = -1L
+    fun reset() { history.clear(); previous = -1; yaw = 0.0; anchor = 0.0; lastFootfall = -1 }
+    fun rotate(rate: Double, t: Long) {
+        if (!rate.isFinite() || t <= previous) return
+        if (previous >= 0 && t-previous > 1000) reset()
+        if (previous >= 0 && t-previous <= 200) yaw += rate*(t-previous)/1000.0
+        previous = t
+        history.addLast(Sample(t,yaw))
+        while(history.isNotEmpty() && t-history.first.t > 3200) history.removeFirst()
+    }
+    fun atStep(t: Long): Double? {
+        val start = history.peekFirst() ?: return null
+        val latest = history.lastOrNull { it.t <= t } ?: return null
+        if(lastFootfall < 0 || t-lastFootfall > 12000) anchor = start.yaw
+        lastFootfall = t
+        val degrees = signedTurnDegrees(anchor,latest.yaw)
+        if (latest.t-start.t < 250 || kotlin.math.abs(degrees) < 65) return null
+        anchor = latest.yaw
+        return degrees
     }
 }

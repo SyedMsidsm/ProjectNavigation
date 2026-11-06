@@ -45,6 +45,21 @@ class ReferenceMotionTest {
         assertTrue(p.step(3000).isEmpty())
         assertEquals(listOf(WalkEvent.Step, WalkEvent.Step), p.step(3500))
     }
+    @Test fun reversingSwayWithLargeNetYawDoesNotMakeACorner() {
+        val p = ReferenceTurnPipeline(1)
+        p.rotation(0.0,0)
+        for(t in 20L..1000L step 20) p.rotation(150.0,t)
+        for(t in 1020L..2000L step 20) p.rotation(-80.0,t)
+        for(t in 2020L..2340L step 20) p.rotation(0.0,t)
+        assertEquals(listOf(WalkEvent.Step),p.step(2400))
+    }
+    @Test fun delayedFootfallAndSensorGapDoNotConfirmACorner() {
+        val p = ReferenceTurnPipeline(1)
+        corner(p,0,90.0)
+        assertEquals(listOf(WalkEvent.Step),p.step(1100))
+        p.rotation(0.0,2100)
+        assertEquals(listOf(WalkEvent.Step),p.step(2200))
+    }
     @Test fun expiredCandidateReleasesEveryStep() {
         val p = ReferenceTurnPipeline(); corner(p, 0, 90.0)
         p.step(1500)
@@ -61,9 +76,40 @@ class ReferenceMotionTest {
         assertTrue(cadence.peak(0).isEmpty())
         assertTrue(cadence.peak(2000).isEmpty())
         assertTrue(cadence.peak(4000).isEmpty())
-        assertEquals(listOf(4000L,4550L),cadence.peak(4550))
-        assertEquals(listOf(5060L),cadence.peak(5060))
+        assertTrue(cadence.peak(4550).isEmpty())
+        assertEquals(listOf(4000L,4550L,5060L),cadence.peak(5060))
         assertTrue(cadence.peak(8000).isEmpty())
+    }
+    @Test fun recordedLeftTurnIsDeliveredWhileWalking() {
+        val window = WalkingTurnWindow()
+        val detector = ReferenceStepDetector(true)
+        val cadence = WalkingCadence()
+        val events = mutableListOf<Pair<Int,Double>>()
+        val recorded = TrailRecorder(.7,"Entrance").apply {
+            repeat(16) { step() }; turn(90.0); repeat(11) { step() }
+        }.finish()
+        val route = RoutePlanner(recorded).plan("T3","T1")!!
+        val tracker = NavigationTracker(recorded,route,.7)
+        var steps = 0
+        javaClass.getResourceAsStream("/reference-motion/s24-reverse-corner.csv")!!.bufferedReader().useLines { rows ->
+            rows.forEach { row ->
+                val (time,acceleration,rate) = row.split(',')
+                val t = time.toLong()
+                window.rotate(rate.toDouble(),t)
+                detector.sample(t,acceleration.toDouble())?.let { peak ->
+                    cadence.peak(peak).forEach { footfall ->
+                        window.atStep(footfall)?.let { events.add(steps to it); tracker.turn(it) }
+                        tracker.step()
+                        steps++
+                    }
+                }
+            }
+        }
+        println("REVERSE WALK $events")
+        assertEquals(1,events.size)
+        assertTrue(events.single().second in -130.0..-65.0)
+        assertEquals(1,tracker.snapshot().currentArcIndex)
+        assertNull(tracker.snapshot().offRouteReason)
     }
     @Test fun replayQuietWalkingAcrossRecordingPauses() {
         var cadence = WalkingCadence()

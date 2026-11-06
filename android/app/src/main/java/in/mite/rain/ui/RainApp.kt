@@ -92,7 +92,7 @@ fun RainApp(model: RainViewModel) {
                     feedbackStatus = model.feedbackStatus, promptPolicy = model.promptMode.displayName(),
                     planDerived = model.currentFloor?.source == "plan_derived_floor",
                     onRepeat = model::repeatGuidance, onObserver = model::observerTag, observerStatus = model.status,
-                    onConfirmPosition = model::confirmPosition, onConfirmFloor = model::confirmFloorChange,
+                    onConfirmPosition = model::confirmPosition, onConfirmFloor = model::confirmFloorChange, onReturn=model::beginReturn,
                     stepLengthM = model.stepLength,
                     voiceOn = model.voiceEnabled, onVoice = model::toggleGuidanceVoice,
                     headingDegrees = model.displayHeading, headingAligned = model.headingAligned, onAlignHeading = model::alignHeading,
@@ -115,6 +115,14 @@ fun RainApp(model: RainViewModel) {
                 TrailRecordScreen(model,onNavigate={page="walk"}){page="home"}
             } else if(page=="library") {
                 TrailLibraryScreen(model,onUse={page="walk"}){page="home"}
+            } else if ((page=="walk" || page=="map") && model.currentFloor?.synthetic == true) {
+                Column(Modifier.fillMaxSize().padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                    androidx.compose.material3.TextButton(onClick={page="home"}) { Text("← Home") }
+                    Text("Choose a floor map",style=MaterialTheme.typography.headlineMedium)
+                    Text("Record a trail or open a saved map to begin.")
+                    Button(onClick={model.prepareRecording();page="record"}) { Text("Record a trail") }
+                    androidx.compose.material3.TextButton(onClick={page="library"}) { Text("Saved maps") }
+                }
             } else if(page=="walk") {
                 key(model.currentFloor?.digest) {
                     WalkSetup(model,onMaps={page="library"},onBack={page="home"},onStart={

@@ -3,6 +3,7 @@ package `in`.mite.rain.platform
 import android.content.Context
 import android.util.AtomicFile
 import `in`.mite.rain.core.CsvGraphLoader
+import `in`.mite.rain.core.reuseRetracedCorridors
 import `in`.mite.rain.core.Graph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,7 +58,8 @@ class FloorPackStore(private val context: Context) {
             val source = json.getString("data_source")
             require(source in setOf("synthetic_floor", "user_provided_floor", "plan_derived_floor", "recorded_trail")) { "Unknown map source." }
             val rooms = json.getString("rooms_csv"); val edges = json.getString("edges_csv")
-            val graph = CsvGraphLoader.load(rooms, edges)
+            val recorded = CsvGraphLoader.load(rooms, edges)
+            val graph = if (source == "recorded_trail") recorded.reuseRetracedCorridors() else recorded
             require(graph.nodes.size in 2..300 && graph.edges.size <= 900) { "Use a single floor with 2–300 nodes and at most 900 segments." }
             require(graph.nodes.values.all { kotlin.math.abs(it.xM) <= 10_000 && kotlin.math.abs(it.yM) <= 10_000 } && graph.edges.all { it.lengthM <= 10_000 }) { "Use local floor coordinates and segment lengths within 10,000 metres." }
             // A navigable floor must have paths in both directions, including one-way layouts.

@@ -4,6 +4,45 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NavigationTest {
+    @Test fun explicitBacktrackingCountsWithoutRequiringAHeadingReversal() {
+        val tracker=tracker()
+        val overshot=tracker.advance(15.0)
+        assertEquals("missed_turn",overshot.offRouteReason)
+        assertEquals(8,overshot.returnSteps)
+        assertTrue(tracker.beginReturn().returning)
+        repeat(8) { tracker.step() }
+        assertEquals(0,tracker.snapshot().returnSteps)
+        assertEquals("missed_turn",tracker.snapshot().offRouteReason)
+        assertNull(tracker.fixAtNode("B").offRouteReason)
+        tracker.advance(17.0)
+        assertEquals("overrun",tracker.snapshot().offRouteReason)
+        tracker.beginReturn()
+        assertEquals(0,tracker.advance(7.0).returnSteps)
+        assertTrue(tracker.fixAtNode("C").arrived)
+    }
+    @Test fun classroomMarksShareOneInstructionUntilTheRealTurn() {
+        val recording = TrailRecorder(1.0,"Entrance")
+        repeat(5) { recording.step() }; recording.mark("Class 1")
+        repeat(5) { recording.step() }; recording.mark("Class 2")
+        repeat(5) { recording.step() }; recording.turn(90.0)
+        repeat(5) { recording.step() }; recording.mark("Library")
+        val graph = recording.finish()
+        val route = RoutePlanner(graph).plan("T1",recording.currentPlaceId)!!
+        val tracker = NavigationTracker(graph,route,1.0)
+        assertEquals("Walk 15 m, then turn right.",tracker.snapshot().instruction)
+        val end = route.guidanceEndIndex(0)
+        val halfway = tracker.advance(7.0)
+        assertEquals(end,route.guidanceEndIndex(halfway.currentArcIndex))
+        assertEquals(8.0,route.distanceToGuidanceEnd(halfway),.001)
+        assertFalse(halfway.instruction.contains("Class"))
+        tracker.advance(8.0)
+        tracker.turn(90.0)
+        assertEquals("Walk straight for 5 m to Library.",tracker.snapshot().instruction)
+        assertTrue(tracker.advance(5.0).arrived)
+        val reverse = NavigationTracker(graph,RoutePlanner(graph).plan(recording.currentPlaceId,"T1")!!,1.0)
+        reverse.advance(5.0); reverse.turn(-90.0)
+        assertEquals("Walk straight for 15 m to Entrance.",reverse.snapshot().instruction)
+    }
     private fun graph(angle: Double = 90.0): Graph = Graph(listOf(node("A", "A"), node("B", "B"), node("C", "C")),
         listOf(Edge("AB", "A", "B", 10.0, 0.0), Edge("BC", "B", "C", 10.0, angle)))
     private fun tracker(angle: Double = 90.0): NavigationTracker {
